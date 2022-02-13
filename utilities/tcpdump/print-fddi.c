@@ -19,17 +19,16 @@
  * MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE.
  */
 
-/* \summary: Fiber Distributed Data Interface (FDDI) printer */
-
+#define NETDISSECT_REWORKED
 #ifdef HAVE_CONFIG_H
 #include "config.h"
 #endif
 
-#include <netdissect-stdinc.h>
+#include <tcpdump-stdinc.h>
 
 #include <string.h>
 
-#include "netdissect.h"
+#include "interface.h"
 #include "addrtoname.h"
 #include "ether.h"
 
@@ -85,9 +84,9 @@ struct fddi_header {
  * Some FDDI interfaces use bit-swapped addresses.
  */
 #if defined(ultrix) || defined(__alpha) || defined(__bsdi) || defined(__NetBSD__) || defined(__linux__)
-static int fddi_bitswap = 0;
+int	fddi_bitswap = 0;
 #else
-static int fddi_bitswap = 1;
+int	fddi_bitswap = 1;
 #endif
 
 /*
@@ -260,11 +259,17 @@ fddi_hdr_print(netdissect_options *ndo,
 	srcname = etheraddr_string(ndo, fsrc);
 	dstname = etheraddr_string(ndo, fdst);
 
-	if (!ndo->ndo_qflag)
+	if (ndo->ndo_vflag)
+		ND_PRINT((ndo, "%02x %s %s %d: ",
+		       fddip->fddi_fc,
+		       srcname, dstname,
+		       length));
+	else if (ndo->ndo_qflag)
+		ND_PRINT((ndo, "%s %s %d: ", srcname, dstname, length));
+	else {
 		print_fddi_fc(ndo, fddip->fddi_fc);
-	ND_PRINT((ndo, "%s > %s, length %u: ",
-	       srcname, dstname,
-	       length));
+		ND_PRINT((ndo, "%s %s %d: ", srcname, dstname, length));
+	}
 }
 
 static inline void
@@ -273,17 +278,16 @@ fddi_smt_print(netdissect_options *ndo, const u_char *p _U_, u_int length _U_)
 	ND_PRINT((ndo, "<SMT printer not yet implemented>"));
 }
 
-u_int
+void
 fddi_print(netdissect_options *ndo, const u_char *p, u_int length, u_int caplen)
 {
 	const struct fddi_header *fddip = (const struct fddi_header *)p;
 	struct ether_header ehdr;
-	struct lladdr_info src, dst;
-	int llc_hdrlen;
+	u_short extracted_ethertype;
 
 	if (caplen < FDDI_HDRLEN) {
 		ND_PRINT((ndo, "[|fddi]"));
-		return (caplen);
+		return;
 	}
 
 	/*
@@ -294,11 +298,6 @@ fddi_print(netdissect_options *ndo, const u_char *p, u_int length, u_int caplen)
 	if (ndo->ndo_eflag)
 		fddi_hdr_print(ndo, fddip, length, ESRC(&ehdr), EDST(&ehdr));
 
-	src.addr = ESRC(&ehdr);
-	src.addr_string = etheraddr_string;
-	dst.addr = EDST(&ehdr);
-	dst.addr_string = etheraddr_string;
-
 	/* Skip over FDDI MAC header */
 	length -= FDDI_HDRLEN;
 	p += FDDI_HDRLEN;
@@ -307,29 +306,32 @@ fddi_print(netdissect_options *ndo, const u_char *p, u_int length, u_int caplen)
 	/* Frame Control field determines interpretation of packet */
 	if ((fddip->fddi_fc & FDDIFC_CLFF) == FDDIFC_LLC_ASYNC) {
 		/* Try to print the LLC-layer header & higher layers */
-		llc_hdrlen = llc_print(ndo, p, length, caplen, &src, &dst);
-		if (llc_hdrlen < 0) {
+		if (llc_print(ndo, p, length, caplen, ESRC(&ehdr), EDST(&ehdr),
+		    &extracted_ethertype) == 0) {
 			/*
 			 * Some kinds of LLC packet we cannot
 			 * handle intelligently
 			 */
+			if (!ndo->ndo_eflag)
+				fddi_hdr_print(ndo, fddip, length + FDDI_HDRLEN,
+				    ESRC(&ehdr), EDST(&ehdr));
+			if (extracted_ethertype) {
+				ND_PRINT((ndo, "(LLC %s) ",
+			etherproto_string(htons(extracted_ethertype))));
+			}
 			if (!ndo->ndo_suppress_default_print)
 				ND_DEFAULTPRINT(p, caplen);
-			llc_hdrlen = -llc_hdrlen;
 		}
-	} else if ((fddip->fddi_fc & FDDIFC_CLFF) == FDDIFC_SMT) {
+	} else if ((fddip->fddi_fc & FDDIFC_CLFF) == FDDIFC_SMT)
 		fddi_smt_print(ndo, p, caplen);
-		llc_hdrlen = 0;
-	} else {
+	else {
 		/* Some kinds of FDDI packet we cannot handle intelligently */
 		if (!ndo->ndo_eflag)
 			fddi_hdr_print(ndo, fddip, length + FDDI_HDRLEN, ESRC(&ehdr),
 			    EDST(&ehdr));
 		if (!ndo->ndo_suppress_default_print)
 			ND_DEFAULTPRINT(p, caplen);
-		llc_hdrlen = 0;
 	}
-	return (FDDI_HDRLEN + llc_hdrlen);
 }
 
 /*
@@ -341,5 +343,7 @@ fddi_print(netdissect_options *ndo, const u_char *p, u_int length, u_int caplen)
 u_int
 fddi_if_print(netdissect_options *ndo, const struct pcap_pkthdr *h, register const u_char *p)
 {
-	return (fddi_print(ndo, p, h->len, h->caplen));
+	fddi_print(ndo, p, h->len, h->caplen);
+
+	return (FDDI_HDRLEN);
 }

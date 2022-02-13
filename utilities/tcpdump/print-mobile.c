@@ -36,17 +36,16 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 
-/* \summary: IPv4 mobility printer */
-
+#define NETDISSECT_REWORKED
 #ifdef HAVE_CONFIG_H
 #include "config.h"
 #endif
 
-#include <netdissect-stdinc.h>
+#include <tcpdump-stdinc.h>
 
-#include "netdissect.h"
+#include "interface.h"
 #include "addrtoname.h"
-#include "extract.h"
+#include "extract.h"		/* must come after interface.h */
 
 #define MOBILE_SIZE (8)
 
@@ -95,7 +94,7 @@ mobile_print(netdissect_options *ndo, const u_char *bp, u_int length)
 		ND_PRINT((ndo, "> %s ", ipaddr_string(ndo, &mob->odst)));
 		ND_PRINT((ndo, "(oproto=%d)", proto>>8));
 	}
-	vec[0].ptr = (const uint8_t *)(const void *)mob;
+	vec[0].ptr = (const uint8_t *)(void *)mob;
 	vec[0].len = osp ? 12 : 8;
 	if (in_cksum(vec, 1)!=0) {
 		ND_PRINT((ndo, " (bad checksum %d)", crc));

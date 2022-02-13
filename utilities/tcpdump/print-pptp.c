@@ -21,15 +21,14 @@
  * PPTP support contributed by Motonori Shindo (mshindo@mshindo.net)
  */
 
-/* \summary: Point-to-Point Tunnelling Protocol (PPTP) printer */
-
+#define NETDISSECT_REWORKED
 #ifdef HAVE_CONFIG_H
 #include "config.h"
 #endif
 
-#include <netdissect-stdinc.h>
+#include <tcpdump-stdinc.h>
 
-#include "netdissect.h"
+#include "interface.h"
 #include "extract.h"
 
 static const char tstr[] = " [|pptp]";
@@ -519,7 +518,7 @@ static void
 pptp_sccrq_print(netdissect_options *ndo,
                  const u_char *dat)
 {
-	const struct pptp_msg_sccrq *ptr = (const struct pptp_msg_sccrq *)dat;
+	struct pptp_msg_sccrq *ptr = (struct pptp_msg_sccrq *)dat;
 
 	ND_TCHECK(ptr->proto_ver);
 	pptp_proto_ver_print(ndo, &ptr->proto_ver);
@@ -547,7 +546,7 @@ static void
 pptp_sccrp_print(netdissect_options *ndo,
                  const u_char *dat)
 {
-	const struct pptp_msg_sccrp *ptr = (const struct pptp_msg_sccrp *)dat;
+	struct pptp_msg_sccrp *ptr = (struct pptp_msg_sccrp *)dat;
 
 	ND_TCHECK(ptr->proto_ver);
 	pptp_proto_ver_print(ndo, &ptr->proto_ver);
@@ -578,7 +577,7 @@ static void
 pptp_stopccrq_print(netdissect_options *ndo,
                     const u_char *dat)
 {
-	const struct pptp_msg_stopccrq *ptr = (const struct pptp_msg_stopccrq *)dat;
+	struct pptp_msg_stopccrq *ptr = (struct pptp_msg_stopccrq *)dat;
 
 	ND_TCHECK(ptr->reason);
 	ND_PRINT((ndo, " REASON(%u", ptr->reason));
@@ -612,7 +611,7 @@ static void
 pptp_stopccrp_print(netdissect_options *ndo,
                     const u_char *dat)
 {
-	const struct pptp_msg_stopccrp *ptr = (const struct pptp_msg_stopccrp *)dat;
+	struct pptp_msg_stopccrp *ptr = (struct pptp_msg_stopccrp *)dat;
 
 	ND_TCHECK(ptr->result_code);
 	pptp_result_code_print(ndo, &ptr->result_code, PPTP_CTRL_MSG_TYPE_StopCCRP);
@@ -630,7 +629,7 @@ static void
 pptp_echorq_print(netdissect_options *ndo,
                   const u_char *dat)
 {
-	const struct pptp_msg_echorq *ptr = (const struct pptp_msg_echorq *)dat;
+	struct pptp_msg_echorq *ptr = (struct pptp_msg_echorq *)dat;
 
 	ND_TCHECK(ptr->id);
 	pptp_id_print(ndo, &ptr->id);
@@ -645,7 +644,7 @@ static void
 pptp_echorp_print(netdissect_options *ndo,
                   const u_char *dat)
 {
-	const struct pptp_msg_echorp *ptr = (const struct pptp_msg_echorp *)dat;
+	struct pptp_msg_echorp *ptr = (struct pptp_msg_echorp *)dat;
 
 	ND_TCHECK(ptr->id);
 	pptp_id_print(ndo, &ptr->id);
@@ -665,7 +664,7 @@ static void
 pptp_ocrq_print(netdissect_options *ndo,
                 const u_char *dat)
 {
-	const struct pptp_msg_ocrq *ptr = (const struct pptp_msg_ocrq *)dat;
+	struct pptp_msg_ocrq *ptr = (struct pptp_msg_ocrq *)dat;
 
 	ND_TCHECK(ptr->call_id);
 	pptp_call_id_print(ndo, &ptr->call_id);
@@ -701,7 +700,7 @@ static void
 pptp_ocrp_print(netdissect_options *ndo,
                 const u_char *dat)
 {
-	const struct pptp_msg_ocrp *ptr = (const struct pptp_msg_ocrp *)dat;
+	struct pptp_msg_ocrp *ptr = (struct pptp_msg_ocrp *)dat;
 
 	ND_TCHECK(ptr->call_id);
 	pptp_call_id_print(ndo, &ptr->call_id);
@@ -732,7 +731,7 @@ static void
 pptp_icrq_print(netdissect_options *ndo,
                 const u_char *dat)
 {
-	const struct pptp_msg_icrq *ptr = (const struct pptp_msg_icrq *)dat;
+	struct pptp_msg_icrq *ptr = (struct pptp_msg_icrq *)dat;
 
 	ND_TCHECK(ptr->call_id);
 	pptp_call_id_print(ndo, &ptr->call_id);
@@ -763,7 +762,7 @@ static void
 pptp_icrp_print(netdissect_options *ndo,
                 const u_char *dat)
 {
-	const struct pptp_msg_icrp *ptr = (const struct pptp_msg_icrp *)dat;
+	struct pptp_msg_icrp *ptr = (struct pptp_msg_icrp *)dat;
 
 	ND_TCHECK(ptr->call_id);
 	pptp_call_id_print(ndo, &ptr->call_id);
@@ -789,7 +788,7 @@ static void
 pptp_iccn_print(netdissect_options *ndo,
                 const u_char *dat)
 {
-	const struct pptp_msg_iccn *ptr = (const struct pptp_msg_iccn *)dat;
+	struct pptp_msg_iccn *ptr = (struct pptp_msg_iccn *)dat;
 
 	ND_TCHECK(ptr->peer_call_id);
 	pptp_peer_call_id_print(ndo, &ptr->peer_call_id);
@@ -813,7 +812,7 @@ static void
 pptp_ccrq_print(netdissect_options *ndo,
                 const u_char *dat)
 {
-	const struct pptp_msg_ccrq *ptr = (const struct pptp_msg_ccrq *)dat;
+	struct pptp_msg_ccrq *ptr = (struct pptp_msg_ccrq *)dat;
 
 	ND_TCHECK(ptr->call_id);
 	pptp_call_id_print(ndo, &ptr->call_id);
@@ -829,7 +828,7 @@ static void
 pptp_cdn_print(netdissect_options *ndo,
                const u_char *dat)
 {
-	const struct pptp_msg_cdn *ptr = (const struct pptp_msg_cdn *)dat;
+	struct pptp_msg_cdn *ptr = (struct pptp_msg_cdn *)dat;
 
 	ND_TCHECK(ptr->call_id);
 	pptp_call_id_print(ndo, &ptr->call_id);
@@ -853,7 +852,7 @@ static void
 pptp_wen_print(netdissect_options *ndo,
                const u_char *dat)
 {
-	const struct pptp_msg_wen *ptr = (const struct pptp_msg_wen *)dat;
+	struct pptp_msg_wen *ptr = (struct pptp_msg_wen *)dat;
 
 	ND_TCHECK(ptr->peer_call_id);
 	pptp_peer_call_id_print(ndo, &ptr->peer_call_id);
@@ -881,7 +880,7 @@ static void
 pptp_sli_print(netdissect_options *ndo,
                const u_char *dat)
 {
-	const struct pptp_msg_sli *ptr = (const struct pptp_msg_sli *)dat;
+	struct pptp_msg_sli *ptr = (struct pptp_msg_sli *)dat;
 
 	ND_TCHECK(ptr->peer_call_id);
 	pptp_peer_call_id_print(ndo, &ptr->peer_call_id);
@@ -907,7 +906,7 @@ pptp_print(netdissect_options *ndo,
 
 	ND_PRINT((ndo, ": pptp"));
 
-	hdr = (const struct pptp_hdr *)dat;
+	hdr = (struct pptp_hdr *)dat;
 
 	ND_TCHECK(hdr->length);
 	if (ndo->ndo_vflag) {

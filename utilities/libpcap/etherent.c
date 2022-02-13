@@ -20,10 +20,22 @@
  */
 
 #ifdef HAVE_CONFIG_H
-#include <config.h>
+#include "config.h"
 #endif
 
-#include <pcap-types.h>
+#ifdef WIN32
+#include <pcap-stdinc.h>
+#else /* WIN32 */
+#if HAVE_INTTYPES_H
+#include <inttypes.h>
+#elif HAVE_STDINT_H
+#include <stdint.h>
+#endif
+#ifdef HAVE_SYS_BITYPES_H
+#include <sys/bitypes.h>
+#endif
+#include <sys/types.h>
+#endif /* WIN32 */
 
 #include <ctype.h>
 #include <memory.h>
@@ -38,23 +50,26 @@
 #include "os-proto.h"
 #endif
 
+static inline int xdtoi(int);
 static inline int skip_space(FILE *);
 static inline int skip_line(FILE *);
 
 /* Hex digit to integer. */
-static inline u_char
-xdtoi(u_char c)
+static inline int
+xdtoi(c)
+	register int c;
 {
 	if (isdigit(c))
-		return (u_char)(c - '0');
+		return c - '0';
 	else if (islower(c))
-		return (u_char)(c - 'a' + 10);
+		return c - 'a' + 10;
 	else
-		return (u_char)(c - 'A' + 10);
+		return c - 'A' + 10;
 }
 
 static inline int
-skip_space(FILE *f)
+skip_space(f)
+	FILE *f;
 {
 	int c;
 
@@ -66,7 +81,8 @@ skip_space(FILE *f)
 }
 
 static inline int
-skip_line(FILE *f)
+skip_line(f)
+	FILE *f;
 {
 	int c;
 
@@ -80,61 +96,47 @@ skip_line(FILE *f)
 struct pcap_etherent *
 pcap_next_etherent(FILE *fp)
 {
-	register int c, i;
-	u_char d;
+	register int c, d, i;
 	char *bp;
-	size_t namesize;
 	static struct pcap_etherent e;
 
 	memset((char *)&e, 0, sizeof(e));
-	for (;;) {
+	do {
 		/* Find addr */
 		c = skip_space(fp);
-		if (c == EOF)
-			return (NULL);
 		if (c == '\n')
 			continue;
 
 		/* If this is a comment, or first thing on line
-		   cannot be Ethernet address, skip the line. */
+		   cannot be etehrnet address, skip the line. */
 		if (!isxdigit(c)) {
 			c = skip_line(fp);
-			if (c == EOF)
-				return (NULL);
 			continue;
 		}
 
 		/* must be the start of an address */
 		for (i = 0; i < 6; i += 1) {
-			d = xdtoi((u_char)c);
+			d = xdtoi(c);
 			c = getc(fp);
-			if (c == EOF)
-				return (NULL);
 			if (isxdigit(c)) {
 				d <<= 4;
-				d |= xdtoi((u_char)c);
+				d |= xdtoi(c);
 				c = getc(fp);
-				if (c == EOF)
-					return (NULL);
 			}
 			e.addr[i] = d;
 			if (c != ':')
 				break;
 			c = getc(fp);
-			if (c == EOF)
-				return (NULL);
 		}
+		if (c == EOF)
+			break;
 
 		/* Must be whitespace */
 		if (!isspace(c)) {
 			c = skip_line(fp);
-			if (c == EOF)
-				return (NULL);
 			continue;
 		}
 		c = skip_space(fp);
-		if (c == EOF)
-			return (NULL);
 
 		/* hit end of line... */
 		if (c == '\n')
@@ -142,21 +144,17 @@ pcap_next_etherent(FILE *fp)
 
 		if (c == '#') {
 			c = skip_line(fp);
-			if (c == EOF)
-				return (NULL);
 			continue;
 		}
 
 		/* pick up name */
 		bp = e.name;
-		/* Use 'namesize' to prevent buffer overflow. */
-		namesize = sizeof(e.name) - 1;
+		/* Use 'd' to prevent buffer overflow. */
+		d = sizeof(e.name) - 1;
 		do {
-			*bp++ = (u_char)c;
+			*bp++ = c;
 			c = getc(fp);
-			if (c == EOF)
-				return (NULL);
-		} while (!isspace(c) && --namesize != 0);
+		} while (!isspace(c) && c != EOF && --d > 0);
 		*bp = '\0';
 
 		/* Eat trailing junk */
@@ -164,5 +162,8 @@ pcap_next_etherent(FILE *fp)
 			(void)skip_line(fp);
 
 		return &e;
-	}
+
+	} while (c != EOF);
+
+	return (NULL);
 }

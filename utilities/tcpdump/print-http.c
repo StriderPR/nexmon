@@ -11,18 +11,21 @@
  * FOR A PARTICULAR PURPOSE.
  */
 
-/* \summary: Hypertext Transfer Protocol (HTTP) printer */
+#ifndef lint
+static const char rcsid[] _U_ =
+    "@(#) $Header$";
+#endif
 
 #ifdef HAVE_CONFIG_H
 #include "config.h"
 #endif
 
-#include <netdissect-stdinc.h>
+#include <tcpdump-stdinc.h>
 
 #include <stdio.h>
 #include <stdlib.h>
 
-#include "netdissect.h"
+#include "interface.h"
 #include "extract.h"
 
 /*

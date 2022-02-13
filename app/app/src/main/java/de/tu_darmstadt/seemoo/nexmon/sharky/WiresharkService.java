@@ -25,6 +25,9 @@ import android.os.Binder;
 import android.os.Environment;
 import android.os.IBinder;
 
+import com.google.android.gms.analytics.HitBuilders;
+import com.google.android.gms.analytics.Tracker;
+
 import java.util.ArrayList;
 
 import de.tu_darmstadt.seemoo.nexmon.MyApplication;
@@ -91,6 +94,12 @@ public class WiresharkService extends Service implements IFrameReceiver {
             isCapturing = true;
 
             sendMonitorModeBroadcast(true);
+
+            Tracker tracker = MyApplication.getDefaultTracker();
+            tracker.send(new HitBuilders.EventBuilder()
+                    .setCategory("Wireshark")
+                    .setAction("Live Capturing started")
+                    .build());
         }
     }
 
@@ -113,6 +122,19 @@ public class WiresharkService extends Service implements IFrameReceiver {
     public void stopLiveCapturing() {
         if (isCapturing) {
             isCapturing = false;
+
+            Tracker tracker = MyApplication.getDefaultTracker();
+
+            tracker.send(new HitBuilders.TimingBuilder()
+                    .setCategory("Runtime")
+                    .setVariable("Wireshark")
+                    .setValue(System.currentTimeMillis() - startTime)
+                    .build());
+
+            tracker.send(new HitBuilders.EventBuilder()
+                    .setCategory("Wireshark")
+                    .setAction("Live Capturing stopped")
+                    .build());
 
             MyApplication.getFrameReceiver().getObserver().removeObserver(this);
             sendMonitorModeBroadcast(false);

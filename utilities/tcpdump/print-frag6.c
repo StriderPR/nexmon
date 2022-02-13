@@ -19,18 +19,18 @@
  * MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE.
  */
 
-/* \summary: IPv6 fragmentation header printer */
-
+#define NETDISSECT_REWORKED
 #ifdef HAVE_CONFIG_H
 #include "config.h"
 #endif
 
-#include <netdissect-stdinc.h>
+#ifdef INET6
 
-#include "netdissect.h"
-#include "extract.h"
+#include <tcpdump-stdinc.h>
 
 #include "ip6.h"
+#include "interface.h"
+#include "extract.h"
 
 int
 frag6_print(netdissect_options *ndo, register const u_char *bp, register const u_char *bp2)
@@ -41,7 +41,7 @@ frag6_print(netdissect_options *ndo, register const u_char *bp, register const u
 	dp = (const struct ip6_frag *)bp;
 	ip6 = (const struct ip6_hdr *)bp2;
 
-	ND_TCHECK(*dp);
+	ND_TCHECK(dp->ip6f_offlg);
 
 	if (ndo->ndo_vflag) {
 		ND_PRINT((ndo, "frag (0x%08x:%d|%ld)",
@@ -68,3 +68,4 @@ trunc:
 	ND_PRINT((ndo, "[|frag]"));
 	return -1;
 }
+#endif /* INET6 */

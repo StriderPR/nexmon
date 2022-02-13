@@ -19,15 +19,14 @@
  * MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE.
  */
 
-/* \summary: Distance Vector Multicast Routing Protocol printer */
-
+#define NETDISSECT_REWORKED
 #ifdef HAVE_CONFIG_H
 #include "config.h"
 #endif
 
-#include <netdissect-stdinc.h>
+#include <tcpdump-stdinc.h>
 
-#include "netdissect.h"
+#include "interface.h"
 #include "extract.h"
 #include "addrtoname.h"
 
@@ -338,7 +337,7 @@ print_prune(netdissect_options *ndo,
 	ND_PRINT((ndo, " src %s grp %s", ipaddr_string(ndo, bp), ipaddr_string(ndo, bp + 4)));
 	bp += 8;
 	ND_PRINT((ndo, " timer "));
-	unsigned_relts_print(ndo, EXTRACT_32BITS(bp));
+	relts_print(ndo, EXTRACT_32BITS(bp));
 	return (0);
 trunc:
 	return (-1);

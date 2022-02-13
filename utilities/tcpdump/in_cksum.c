@@ -35,13 +35,14 @@
  *	@(#)in_cksum.c	8.1 (Berkeley) 6/10/93
  */
 
+#define NETDISSECT_REWORKED
 #ifdef HAVE_CONFIG_H
 # include "config.h"
 #endif
 
-#include <netdissect-stdinc.h>
+#include <tcpdump-stdinc.h>
 
-#include "netdissect.h"
+#include "interface.h"
 
 /*
  * Checksum routine for Internet Protocol family headers (Portable Version).
@@ -73,7 +74,7 @@ in_cksum(const struct cksum_vec *vec, int veclen)
 	for (; veclen != 0; vec++, veclen--) {
 		if (vec->len == 0)
 			continue;
-		w = (const uint16_t *)(const void *)vec->ptr;
+		w = (const uint16_t *)(void *)vec->ptr;
 		if (mlen == -1) {
 			/*
 			 * The first byte of this chunk is the continuation
@@ -85,18 +86,18 @@ in_cksum(const struct cksum_vec *vec, int veclen)
 			 */
 			s_util.c[1] = *(const uint8_t *)w;
 			sum += s_util.s;
-			w = (const uint16_t *)(const void *)((const uint8_t *)w + 1);
+			w = (const uint16_t *)(void *)((const uint8_t *)w + 1);
 			mlen = vec->len - 1;
 		} else
 			mlen = vec->len;
 		/*
 		 * Force to even boundary.
 		 */
-		if ((1 & (uintptr_t) w) && (mlen > 0)) {
+		if ((1 & (unsigned long) w) && (mlen > 0)) {
 			REDUCE;
 			sum <<= 8;
 			s_util.c[0] = *(const uint8_t *)w;
-			w = (const uint16_t *)(const void *)((const uint8_t *)w + 1);
+			w = (const uint16_t *)(void *)((const uint8_t *)w + 1);
 			mlen--;
 			byte_swapped = 1;
 		}

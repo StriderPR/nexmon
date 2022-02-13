@@ -18,7 +18,6 @@
 
 package de.tu_darmstadt.seemoo.nexmon.gui;
 
-import android.app.Fragment;
 import android.content.Intent;
 import android.os.Bundle;
 import android.os.Environment;
@@ -55,7 +54,7 @@ import de.tu_darmstadt.seemoo.nexmon.stations.WpaDictAttack;
 /**
  * Created by fabian on 10/1/16.
  */
-public class WpaDictFragment extends Fragment {
+public class WpaDictFragment extends TrackingFragment {
 
     private static final int HANDLER_SHOW_LOADING = 1;
     private static final int HANDLER_DISMISS_LOADING = 2;
@@ -63,20 +62,35 @@ public class WpaDictFragment extends Fragment {
     private static final int HANDLER_SHOW_TOAST = 4;
     private static final int REQ_CODE_SRC1 = 10;
     private static final int REQ_CODE_SRC2 = 11;
+
+
     private static EditText etDictHashFile;
     private static EditText etPcapFile;
     private static EditText etEssid;
+
     private static Button btnSelectDictHashFile;
     private static Button btnSelectPcapFile;
     private static Button btnStart;
     private static Button btnScanAp;
+
     private Spinner spinnerAp;
+
+
     private CatLoadingView loadingView;
+
     private String dictHashFile;
     private String pcapFile;
+
     private Attack attack;
+
     private HashMap<String, String> bssidToSsid = new HashMap<String, String>();
+
+
+
+
+
     private Handler guiHandler;
+
     public WpaDictFragment() {
         // Required empty public constructor
     }
@@ -140,6 +154,11 @@ public class WpaDictFragment extends Fragment {
     public void onResume() {
         super.onResume();
 
+    }
+
+    @Override
+    public String getTrackingName() {
+        return "Screen: WPA dict";
     }
 
     @Override

@@ -12,20 +12,19 @@
  * LIMITATION, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS
  * FOR A PARTICULAR PURPOSE.
  *
+ * Support for the Light Weight Access Point Protocol as per RFC 5412
+ *
  * Original code by Carles Kishimoto <carles.kishimoto@gmail.com>
  */
 
-/* \summary: Light Weight Access Point Protocol (LWAPP) printer */
-
-/* specification: RFC 5412 */
-
+#define NETDISSECT_REWORKED
 #ifdef HAVE_CONFIG_H
 #include "config.h"
 #endif
 
-#include <netdissect-stdinc.h>
+#include <tcpdump-stdinc.h>
 
-#include "netdissect.h"
+#include "interface.h"
 #include "extract.h"
 #include "addrtoname.h"
 

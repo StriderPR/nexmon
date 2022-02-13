@@ -16,15 +16,14 @@
  * FOR A PARTICULAR PURPOSE.
  */
 
-/* \summary: Multicast Source Discovery Protocol (MSDP) printer */
-
+#define NETDISSECT_REWORKED
 #ifdef HAVE_CONFIG_H
 #include "config.h"
 #endif
 
-#include <netdissect-stdinc.h>
+#include <tcpdump-stdinc.h>
 
-#include "netdissect.h"
+#include "interface.h"
 #include "addrtoname.h"
 #include "extract.h"
 

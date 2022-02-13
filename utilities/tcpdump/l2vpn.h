@@ -10,8 +10,7 @@
  * LIMITATION, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS
  * FOR A PARTICULAR PURPOSE.
  *
- * Original code by Hannes Gredler (hannes@gredler.at)
+ * Original code by Hannes Gredler (hannes@juniper.net)
  */
 
 extern const struct tok l2vpn_encaps_values[];
-extern const struct tok mpls_pw_types_values[];

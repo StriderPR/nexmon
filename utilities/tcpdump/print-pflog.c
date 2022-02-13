@@ -19,8 +19,7 @@
  * MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE.
  */
 
-/* \summary: OpenBSD packet filter log file printer */
-
+#define NETDISSECT_REWORKED
 #ifdef HAVE_CONFIG_H
 #include "config.h"
 #endif
@@ -34,9 +33,9 @@
 #include <net/pfvar.h>
 #include <net/if_pflog.h>
 
-#include <netdissect-stdinc.h>
+#include <tcpdump-stdinc.h>
 
-#include "netdissect.h"
+#include "interface.h"
 #include "extract.h"
 
 static const char tstr[] = "[|pflog]";
@@ -121,7 +120,7 @@ pflog_if_print(netdissect_options *ndo, const struct pcap_pkthdr *h,
 	}
 
 #define MIN_PFLOG_HDRLEN	45
-	hdr = (const struct pfloghdr *)p;
+	hdr = (struct pfloghdr *)p;
 	if (hdr->length < MIN_PFLOG_HDRLEN) {
 		ND_PRINT((ndo, "[pflog: invalid header length!]"));
 		return (hdr->length);	/* XXX: not really */
@@ -134,6 +133,7 @@ pflog_if_print(netdissect_options *ndo, const struct pcap_pkthdr *h,
 	}
 
 	/* print what we know */
+	hdr = (struct pfloghdr *)p;
 	ND_TCHECK(*hdr);
 	if (ndo->ndo_eflag)
 		pflog_print(ndo, hdr);

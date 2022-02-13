@@ -30,20 +30,20 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 
-/* \summary: version-independent OpenFlow printer */
-
+#define NETDISSECT_REWORKED
 #ifdef HAVE_CONFIG_H
 #include "config.h"
 #endif
 
-#include <netdissect-stdinc.h>
+#include <tcpdump-stdinc.h>
 
-#include "netdissect.h"
+#include "interface.h"
 #include "extract.h"
 #include "openflow.h"
 #include "oui.h"
 
 static const char tstr[] = " [|openflow]";
+static const char cstr[] = " (corrupt)";
 
 #define OF_VER_1_0    0x01
 
@@ -83,7 +83,7 @@ of_header_body_print(netdissect_options *ndo, const u_char *cp, const u_char *ep
 	uint32_t xid;
 
 	if (ep < cp + OF_HEADER_LEN)
-		goto invalid;
+		goto corrupt;
 	/* version */
 	ND_TCHECK2(*cp, 1);
 	version = *cp;
@@ -107,7 +107,7 @@ of_header_body_print(netdissect_options *ndo, const u_char *cp, const u_char *ep
 	 * segment. */
 	if (length < OF_HEADER_LEN) {
 		of_header_print(ndo, version, type, length, xid);
-		goto invalid;
+		goto corrupt;
 	}
 	/* Decode known protocol versions further without printing the header (the
 	 * type decoding is version-specific. */
@@ -120,8 +120,8 @@ of_header_body_print(netdissect_options *ndo, const u_char *cp, const u_char *ep
 		return cp + length - OF_HEADER_LEN; /* done with current message */
 	}
 
-invalid: /* fail current packet */
-	ND_PRINT((ndo, "%s", istr));
+corrupt: /* fail current packet */
+	ND_PRINT((ndo, "%s", cstr));
 	ND_TCHECK2(*cp, ep - cp);
 	return ep;
 trunc:

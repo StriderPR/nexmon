@@ -25,14 +25,12 @@
  * DAMAGE.
  */
 
-#ifndef lib_pcap_nflog_h
-#define lib_pcap_nflog_h
-
-#include <pcap/pcap-inttypes.h>
+#ifndef _PCAP_NFLOG_H__
+#define _PCAP_NFLOG_H__
 
 /*
  * Structure of an NFLOG header and TLV parts, as described at
- * https://www.tcpdump.org/linktypes/LINKTYPE_NFLOG.html
+ * http://www.tcpdump.org/linktypes/LINKTYPE_NFLOG.html
  *
  * The NFLOG header is big-endian.
  *
@@ -42,32 +40,32 @@
  * data, etc.).
  */
 typedef struct nflog_hdr {
-	uint8_t		nflog_family;	/* address family */
-	uint8_t		nflog_version;	/* version */
-	uint16_t	nflog_rid;	/* resource ID */
+	u_int8_t	nflog_family;		/* address family */
+	u_int8_t	nflog_version;		/* version */
+	u_int16_t	nflog_rid;		/* resource ID */
 } nflog_hdr_t;
 
 typedef struct nflog_tlv {
-	uint16_t	tlv_length;	/* tlv length */
-	uint16_t	tlv_type;	/* tlv type */
+	u_int16_t	tlv_length;		/* tlv length */
+	u_int16_t	tlv_type;		/* tlv type */
 	/* value follows this */
 } nflog_tlv_t;
 
 typedef struct nflog_packet_hdr {
-	uint16_t	hw_protocol;	/* hw protocol */
-	uint8_t		hook;		/* netfilter hook */
-	uint8_t		pad;		/* padding to 32 bits */
+	u_int16_t	hw_protocol;	/* hw protocol */
+	u_int8_t	hook;		/* netfilter hook */
+	u_int8_t	pad;		/* padding to 32 bits */
 } nflog_packet_hdr_t;
 
 typedef struct nflog_hwaddr {
-	uint16_t	hw_addrlen;	/* address length */
-	uint16_t	pad;		/* padding to 32-bit boundary */
-	uint8_t		hw_addr[8];	/* address, up to 8 bytes */
+	u_int16_t	hw_addrlen;	/* address length */
+	u_int16_t	pad;		/* padding to 32-bit boundary */
+	u_int8_t	hw_addr[8];	/* address, up to 8 bytes */
 } nflog_hwaddr_t;
 
 typedef struct nflog_timestamp {
-	uint64_t	sec;
-	uint64_t	usec;
+	u_int64_t	sec;
+	u_int64_t	usec;
 } nflog_timestamp_t;
 
 /*

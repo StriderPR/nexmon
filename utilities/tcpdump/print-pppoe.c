@@ -21,16 +21,15 @@
  * Original code by Greg Stark <gsstark@mit.edu>
  */
 
-/* \summary: PPP-over-Ethernet (PPPoE) printer */
-
+#define NETDISSECT_REWORKED
 #ifdef HAVE_CONFIG_H
 #include "config.h"
 #endif
 
-#include <netdissect-stdinc.h>
+#include <tcpdump-stdinc.h>
 
-#include "netdissect.h"
-#include "extract.h"
+#include "interface.h"
+#include "extract.h"			/* must come after interface.h */
 
 /* Codes */
 enum {
@@ -148,7 +147,7 @@ pppoe_print(netdissect_options *ndo, register const u_char *bp, u_int length)
 			/* p points to tag_value */
 
 			if (tag_len) {
-				unsigned ascii_count = 0, garbage_count = 0;
+				unsigned isascii = 0, isgarbage = 0;
 				const u_char *v;
 				char tag_str[MAXTAGPRINT];
 				unsigned tag_str_len = 0;
@@ -158,14 +157,14 @@ pppoe_print(netdissect_options *ndo, register const u_char *bp, u_int length)
 				for (v = p; v < p + tag_len && tag_str_len < MAXTAGPRINT-1; v++)
 					if (*v >= 32 && *v < 127) {
 						tag_str[tag_str_len++] = *v;
-						ascii_count++;
+						isascii++;
 					} else {
 						tag_str[tag_str_len++] = '.';
-						garbage_count++;
+						isgarbage++;
 					}
 				tag_str[tag_str_len] = 0;
 
-				if (ascii_count > garbage_count) {
+				if (isascii > isgarbage) {
 					ND_PRINT((ndo, " [%s \"%*.*s\"]",
 					       tok2str(pppoetag2str, "TAG-0x%x", tag_type),
 					       (int)tag_str_len,

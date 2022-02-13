@@ -27,22 +27,21 @@
  * SUCH DAMAGE.
  */
 
-/* \summary: BIND9 Lightweight Resolver protocol printer */
-
+#define NETDISSECT_REWORKED
 #ifdef HAVE_CONFIG_H
 #include "config.h"
 #endif
 
-#include <netdissect-stdinc.h>
+#include <tcpdump-stdinc.h>
 
 #include "nameser.h"
 
 #include <stdio.h>
 #include <string.h>
 
-#include "netdissect.h"
+#include "interface.h"
 #include "addrtoname.h"
-#include "extract.h"
+#include "extract.h"                    /* must come after interface.h */
 
 /* BIND9 lib/lwres/include/lwres */
 typedef uint32_t lwres_uint32_t;
@@ -251,7 +250,7 @@ lwres_printbinlen(netdissect_options *ndo,
 
 static int
 lwres_printaddr(netdissect_options *ndo,
-                const lwres_addr_t *ap)
+                lwres_addr_t *ap)
 {
 	uint16_t l;
 	const char *p;
@@ -270,12 +269,14 @@ lwres_printaddr(netdissect_options *ndo,
 		ND_PRINT((ndo, " %s", ipaddr_string(ndo, p)));
 		p += sizeof(struct in_addr);
 		break;
+#ifdef INET6
 	case 2:	/* IPv6 */
 		if (l < 16)
 			return -1;
 		ND_PRINT((ndo, " %s", ip6addr_string(ndo, p)));
 		p += sizeof(struct in6_addr);
 		break;
+#endif
 	default:
 		ND_PRINT((ndo, " %u/", EXTRACT_32BITS(&ap->family)));
 		for (i = 0; i < l; i++)
@@ -342,9 +343,9 @@ lwres_print(netdissect_options *ndo,
 		/*
 		 * queries
 		 */
-		const lwres_gabnrequest_t *gabn;
-		const lwres_gnbarequest_t *gnba;
-		const lwres_grbnrequest_t *grbn;
+		lwres_gabnrequest_t *gabn;
+		lwres_gnbarequest_t *gnba;
+		lwres_grbnrequest_t *grbn;
 		uint32_t l;
 
 		gabn = NULL;
@@ -355,7 +356,7 @@ lwres_print(netdissect_options *ndo,
 		case LWRES_OPCODE_NOOP:
 			break;
 		case LWRES_OPCODE_GETADDRSBYNAME:
-			gabn = (const lwres_gabnrequest_t *)(np + 1);
+			gabn = (lwres_gabnrequest_t *)(np + 1);
 			ND_TCHECK(gabn->namelen);
 			/* XXX gabn points to packed struct */
 			s = (const char *)&gabn->namelen +
@@ -389,7 +390,7 @@ lwres_print(netdissect_options *ndo,
 			s += advance;
 			break;
 		case LWRES_OPCODE_GETNAMEBYADDR:
-			gnba = (const lwres_gnbarequest_t *)(np + 1);
+			gnba = (lwres_gnbarequest_t *)(np + 1);
 			ND_TCHECK(gnba->addr);
 
 			/* BIND910: not used */
@@ -407,7 +408,7 @@ lwres_print(netdissect_options *ndo,
 			break;
 		case LWRES_OPCODE_GETRDATABYNAME:
 			/* XXX no trace, not tested */
-			grbn = (const lwres_grbnrequest_t *)(np + 1);
+			grbn = (lwres_grbnrequest_t *)(np + 1);
 			ND_TCHECK(grbn->namelen);
 
 			/* BIND910: not used */
@@ -441,9 +442,9 @@ lwres_print(netdissect_options *ndo,
 		/*
 		 * responses
 		 */
-		const lwres_gabnresponse_t *gabn;
-		const lwres_gnbaresponse_t *gnba;
-		const lwres_grbnresponse_t *grbn;
+		lwres_gabnresponse_t *gabn;
+		lwres_gnbaresponse_t *gnba;
+		lwres_grbnresponse_t *grbn;
 		uint32_t l, na;
 		uint32_t i;
 
@@ -455,7 +456,7 @@ lwres_print(netdissect_options *ndo,
 		case LWRES_OPCODE_NOOP:
 			break;
 		case LWRES_OPCODE_GETADDRSBYNAME:
-			gabn = (const lwres_gabnresponse_t *)(np + 1);
+			gabn = (lwres_gabnresponse_t *)(np + 1);
 			ND_TCHECK(gabn->realnamelen);
 			/* XXX gabn points to packed struct */
 			s = (const char *)&gabn->realnamelen +
@@ -488,14 +489,14 @@ lwres_print(netdissect_options *ndo,
 			/* addrs */
 			na = EXTRACT_16BITS(&gabn->naddrs);
 			for (i = 0; i < na; i++) {
-				advance = lwres_printaddr(ndo, (const lwres_addr_t *)s);
+				advance = lwres_printaddr(ndo, (lwres_addr_t *)s);
 				if (advance < 0)
 					goto trunc;
 				s += advance;
 			}
 			break;
 		case LWRES_OPCODE_GETNAMEBYADDR:
-			gnba = (const lwres_gnbaresponse_t *)(np + 1);
+			gnba = (lwres_gnbaresponse_t *)(np + 1);
 			ND_TCHECK(gnba->realnamelen);
 			/* XXX gnba points to packed struct */
 			s = (const char *)&gnba->realnamelen +
@@ -526,7 +527,7 @@ lwres_print(netdissect_options *ndo,
 			break;
 		case LWRES_OPCODE_GETRDATABYNAME:
 			/* XXX no trace, not tested */
-			grbn = (const lwres_grbnresponse_t *)(np + 1);
+			grbn = (lwres_grbnresponse_t *)(np + 1);
 			ND_TCHECK(grbn->nsigs);
 
 			/* BIND910: not used */
@@ -542,7 +543,7 @@ lwres_print(netdissect_options *ndo,
 				    EXTRACT_16BITS(&grbn->rdclass))));
 			}
 			ND_PRINT((ndo, " TTL "));
-			unsigned_relts_print(ndo, EXTRACT_32BITS(&grbn->ttl));
+			relts_print(ndo, EXTRACT_32BITS(&grbn->ttl));
 			ND_PRINT((ndo, " %u/%u", EXTRACT_16BITS(&grbn->nrdatas),
 			    EXTRACT_16BITS(&grbn->nsigs)));
 

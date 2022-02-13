@@ -19,15 +19,14 @@
  * MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE.
  */
 
-/* \summary: Ethernet printer */
-
+#define NETDISSECT_REWORKED
 #ifdef HAVE_CONFIG_H
 #include "config.h"
 #endif
 
-#include <netdissect-stdinc.h>
+#include <tcpdump-stdinc.h>
 
-#include "netdissect.h"
+#include "interface.h"
 #include "extract.h"
 #include "addrtoname.h"
 #include "ethertype.h"
@@ -84,7 +83,6 @@ const struct tok ethertype_values[] = {
     { ETHERTYPE_GEONET,         "GeoNet"},
     { ETHERTYPE_CALM_FAST,      "CALM FAST"},
     { ETHERTYPE_AOE,            "AoE" },
-    { ETHERTYPE_MEDSA,          "MEDSA" },
     { 0, NULL}
 };
 
@@ -93,7 +91,7 @@ ether_hdr_print(netdissect_options *ndo,
                 const u_char *bp, u_int length)
 {
 	register const struct ether_header *ep;
-	uint16_t length_type;
+	uint16_t ether_type;
 
 	ep = (const struct ether_header *)bp;
 
@@ -101,21 +99,19 @@ ether_hdr_print(netdissect_options *ndo,
 		     etheraddr_string(ndo, ESRC(ep)),
 		     etheraddr_string(ndo, EDST(ep))));
 
-	length_type = EXTRACT_16BITS(&ep->ether_length_type);
+	ether_type = EXTRACT_16BITS(&ep->ether_type);
 	if (!ndo->ndo_qflag) {
-	        if (length_type <= ETHERMTU) {
-		        ND_PRINT((ndo, ", 802.3"));
-			length = length_type;
-		} else
-		        ND_PRINT((ndo, ", ethertype %s (0x%04x)",
-				       tok2str(ethertype_values,"Unknown", length_type),
-                                       length_type));
+	        if (ether_type <= ETHERMTU)
+		          ND_PRINT((ndo, ", 802.3"));
+                else
+		          ND_PRINT((ndo, ", ethertype %s (0x%04x)",
+				       tok2str(ethertype_values,"Unknown", ether_type),
+                                       ether_type));
         } else {
-                if (length_type <= ETHERMTU) {
-                        ND_PRINT((ndo, ", 802.3"));
-			length = length_type;
-		} else
-                        ND_PRINT((ndo, ", %s", tok2str(ethertype_values,"Unknown Ethertype (0x%04x)", length_type)));
+                if (ether_type <= ETHERMTU)
+                          ND_PRINT((ndo, ", 802.3"));
+                else
+                          ND_PRINT((ndo, ", %s", tok2str(ethertype_values,"Unknown Ethertype (0x%04x)", ether_type)));
         }
 
 	ND_PRINT((ndo, ", length %u: ", length));
@@ -126,28 +122,20 @@ ether_hdr_print(netdissect_options *ndo,
  * This might be encapsulated within another frame; we might be passed
  * a pointer to a function that can print header information for that
  * frame's protocol, and an argument to pass to that function.
- *
- * FIXME: caplen can and should be derived from ndo->ndo_snapend and p.
  */
-u_int
+void
 ether_print(netdissect_options *ndo,
             const u_char *p, u_int length, u_int caplen,
             void (*print_encap_header)(netdissect_options *ndo, const u_char *), const u_char *encap_header_arg)
 {
-	const struct ether_header *ep;
+	struct ether_header *ep;
 	u_int orig_length;
-	u_short length_type;
-	u_int hdrlen;
-	int llc_hdrlen;
-	struct lladdr_info src, dst;
+	u_short ether_type;
+	u_short extracted_ether_type;
 
-	if (caplen < ETHER_HDRLEN) {
+	if (caplen < ETHER_HDRLEN || length < ETHER_HDRLEN) {
 		ND_PRINT((ndo, "[|ether]"));
-		return (caplen);
-	}
-	if (length < ETHER_HDRLEN) {
-		ND_PRINT((ndo, "[|ether]"));
-		return (length);
+		return;
 	}
 
 	if (ndo->ndo_eflag) {
@@ -159,61 +147,55 @@ ether_print(netdissect_options *ndo,
 
 	length -= ETHER_HDRLEN;
 	caplen -= ETHER_HDRLEN;
-	ep = (const struct ether_header *)p;
+	ep = (struct ether_header *)p;
 	p += ETHER_HDRLEN;
-	hdrlen = ETHER_HDRLEN;
 
-	src.addr = ESRC(ep);
-	src.addr_string = etheraddr_string;
-	dst.addr = EDST(ep);
-	dst.addr_string = etheraddr_string;
-	length_type = EXTRACT_16BITS(&ep->ether_length_type);
+	ether_type = EXTRACT_16BITS(&ep->ether_type);
 
 recurse:
 	/*
 	 * Is it (gag) an 802.3 encapsulation?
 	 */
-	if (length_type <= ETHERMTU) {
+	if (ether_type <= ETHERMTU) {
 		/* Try to print the LLC-layer header & higher layers */
-		llc_hdrlen = llc_print(ndo, p, length, caplen, &src, &dst);
-		if (llc_hdrlen < 0) {
-			/* packet type not known, print raw packet */
+		if (llc_print(ndo, p, length, caplen, ESRC(ep), EDST(ep),
+		    &extracted_ether_type) == 0) {
+			/* ether_type not known, print raw packet */
+			if (!ndo->ndo_eflag) {
+				if (print_encap_header != NULL)
+					(*print_encap_header)(ndo, encap_header_arg);
+				ether_hdr_print(ndo, (u_char *)ep, orig_length);
+			}
+
 			if (!ndo->ndo_suppress_default_print)
 				ND_DEFAULTPRINT(p, caplen);
-			llc_hdrlen = -llc_hdrlen;
 		}
-		hdrlen += llc_hdrlen;
-	} else if (length_type == ETHERTYPE_8021Q  ||
-                length_type == ETHERTYPE_8021Q9100 ||
-                length_type == ETHERTYPE_8021Q9200 ||
-                length_type == ETHERTYPE_8021QinQ) {
+	} else if (ether_type == ETHERTYPE_8021Q  ||
+                ether_type == ETHERTYPE_8021Q9100 ||
+                ether_type == ETHERTYPE_8021Q9200 ||
+                ether_type == ETHERTYPE_8021QinQ) {
 		/*
 		 * Print VLAN information, and then go back and process
 		 * the enclosed type field.
 		 */
-		if (caplen < 4) {
+		if (caplen < 4 || length < 4) {
 			ND_PRINT((ndo, "[|vlan]"));
-			return (hdrlen + caplen);
-		}
-		if (length < 4) {
-			ND_PRINT((ndo, "[|vlan]"));
-			return (hdrlen + length);
+			return;
 		}
 	        if (ndo->ndo_eflag) {
-			uint16_t tag = EXTRACT_16BITS(p);
+	        	uint16_t tag = EXTRACT_16BITS(p);
 
 			ND_PRINT((ndo, "%s, ", ieee8021q_tci_string(tag)));
 		}
 
-		length_type = EXTRACT_16BITS(p + 2);
-		if (ndo->ndo_eflag && length_type > ETHERMTU)
-			ND_PRINT((ndo, "ethertype %s, ", tok2str(ethertype_values,"0x%04x", length_type)));
+		ether_type = EXTRACT_16BITS(p + 2);
+		if (ndo->ndo_eflag && ether_type > ETHERMTU)
+			ND_PRINT((ndo, "ethertype %s, ", tok2str(ethertype_values,"0x%04x", ether_type)));
 		p += 4;
 		length -= 4;
 		caplen -= 4;
-		hdrlen += 4;
 		goto recurse;
-	} else if (length_type == ETHERTYPE_JUMBO) {
+	} else if (ether_type == ETHERTYPE_JUMBO) {
 		/*
 		 * Alteon jumbo frames.
 		 * See
@@ -224,48 +206,53 @@ recurse:
 		 * there's an LLC header and payload.
 		 */
 		/* Try to print the LLC-layer header & higher layers */
-		llc_hdrlen = llc_print(ndo, p, length, caplen, &src, &dst);
-		if (llc_hdrlen < 0) {
-			/* packet type not known, print raw packet */
-			if (!ndo->ndo_suppress_default_print)
-				ND_DEFAULTPRINT(p, caplen);
-			llc_hdrlen = -llc_hdrlen;
-		}
-		hdrlen += llc_hdrlen;
-	} else {
-		if (ethertype_print(ndo, length_type, p, length, caplen, &src, &dst) == 0) {
-			/* type not known, print raw packet */
+		if (llc_print(ndo, p, length, caplen, ESRC(ep), EDST(ep),
+		    &extracted_ether_type) == 0) {
+			/* ether_type not known, print raw packet */
 			if (!ndo->ndo_eflag) {
 				if (print_encap_header != NULL)
 					(*print_encap_header)(ndo, encap_header_arg);
-				ether_hdr_print(ndo, (const u_char *)ep, orig_length);
+				ether_hdr_print(ndo, (u_char *)ep, orig_length);
+			}
+
+			if (!ndo->ndo_suppress_default_print)
+				ND_DEFAULTPRINT(p, caplen);
+		}
+	} else {
+		if (ethertype_print(ndo, ether_type, p, length, caplen) == 0) {
+			/* ether_type not known, print raw packet */
+			if (!ndo->ndo_eflag) {
+				if (print_encap_header != NULL)
+					(*print_encap_header)(ndo, encap_header_arg);
+				ether_hdr_print(ndo, (u_char *)ep, orig_length);
 			}
 
 			if (!ndo->ndo_suppress_default_print)
 				ND_DEFAULTPRINT(p, caplen);
 		}
 	}
-	return (hdrlen);
 }
 
 /*
  * This is the top level routine of the printer.  'p' points
- * to the ether header of the packet, 'h->len' is the length
- * of the packet off the wire, and 'h->caplen' is the number
- * of bytes actually captured.
+ * to the ether header of the packet, 'h->ts' is the timestamp,
+ * 'h->len' is the length of the packet off the wire, and 'h->caplen'
+ * is the number of bytes actually captured.
  */
 u_int
 ether_if_print(netdissect_options *ndo, const struct pcap_pkthdr *h,
                const u_char *p)
 {
-	return (ether_print(ndo, p, h->len, h->caplen, NULL, NULL));
+	ether_print(ndo, p, h->len, h->caplen, NULL, NULL);
+
+	return (ETHER_HDRLEN);
 }
 
 /*
  * This is the top level routine of the printer.  'p' points
- * to the ether header of the packet, 'h->len' is the length
- * of the packet off the wire, and 'h->caplen' is the number
- * of bytes actually captured.
+ * to the ether header of the packet, 'h->ts' is the timestamp,
+ * 'h->len' is the length of the packet off the wire, and 'h->caplen'
+ * is the number of bytes actually captured.
  *
  * This is for DLT_NETANALYZER, which has a 4-byte pseudo-header
  * before the Ethernet header.
@@ -283,14 +270,16 @@ netanalyzer_if_print(netdissect_options *ndo, const struct pcap_pkthdr *h,
 	}
 
 	/* Skip the pseudo-header. */
-	return (4 + ether_print(ndo, p + 4, h->len - 4, h->caplen - 4, NULL, NULL));
+	ether_print(ndo, p + 4, h->len - 4, h->caplen - 4, NULL, NULL);
+
+	return (4 + ETHER_HDRLEN);
 }
 
 /*
  * This is the top level routine of the printer.  'p' points
- * to the ether header of the packet, 'h->len' is the length
- * of the packet off the wire, and 'h->caplen' is the number
- * of bytes actually captured.
+ * to the ether header of the packet, 'h->ts' is the timestamp,
+ * 'h->len' is the length of the packet off the wire, and 'h->caplen'
+ * is the number of bytes actually captured.
  *
  * This is for DLT_NETANALYZER_TRANSPARENT, which has a 4-byte
  * pseudo-header, a 7-byte Ethernet preamble, and a 1-byte Ethernet SOF
@@ -311,7 +300,9 @@ netanalyzer_transparent_if_print(netdissect_options *ndo,
 	}
 
 	/* Skip the pseudo-header, preamble, and SOF. */
-	return (12 + ether_print(ndo, p + 12, h->len - 12, h->caplen - 12, NULL, NULL));
+	ether_print(ndo, p + 12, h->len - 12, h->caplen - 12, NULL, NULL);
+
+	return (12 + ETHER_HDRLEN);
 }
 
 /*
@@ -324,8 +315,7 @@ netanalyzer_transparent_if_print(netdissect_options *ndo,
 int
 ethertype_print(netdissect_options *ndo,
                 u_short ether_type, const u_char *p,
-                u_int length, u_int caplen,
-                const struct lladdr_info *src, const struct lladdr_info *dst)
+                u_int length, u_int caplen)
 {
 	switch (ether_type) {
 
@@ -339,7 +329,7 @@ ethertype_print(netdissect_options *ndo,
 
 	case ETHERTYPE_ARP:
 	case ETHERTYPE_REVARP:
-	        arp_print(ndo, p, length, caplen);
+  	        arp_print(ndo, p, length, caplen);
 		return (1);
 
 	case ETHERTYPE_DN:
@@ -362,11 +352,7 @@ ethertype_print(netdissect_options *ndo,
 		return (1);
 
 	case ETHERTYPE_ISO:
-		if (length == 0 || caplen == 0) {
-			ND_PRINT((ndo, " [|osi]"));
-			return (1);
-		}
-		isoclns_print(ndo, p + 1, length - 1);
+		isoclns_print(ndo, p + 1, length - 1, length - 1);
 		return(1);
 
 	case ETHERTYPE_PPPOED:
@@ -381,7 +367,7 @@ ethertype_print(netdissect_options *ndo,
 		return (1);
 
 	case ETHERTYPE_RRCP:
-	        rrcp_print(ndo, p, length, src, dst);
+	        rrcp_print(ndo, p - 14 , length + 14);
 		return (1);
 
 	case ETHERTYPE_PPP:
@@ -427,19 +413,15 @@ ethertype_print(netdissect_options *ndo,
 
         case ETHERTYPE_GEONET_OLD:
         case ETHERTYPE_GEONET:
-                geonet_print(ndo, p, length, src);
+                geonet_print(ndo, p-14, p, length);
                 return (1);
 
         case ETHERTYPE_CALM_FAST:
-                calm_fast_print(ndo, p, length, src);
+                calm_fast_print(ndo, p-14, p, length);
                 return (1);
 
 	case ETHERTYPE_AOE:
 		aoe_print(ndo, p, length);
-		return (1);
-
-	case ETHERTYPE_MEDSA:
-		medsa_print(ndo, p, length, caplen, src, dst);
 		return (1);
 
 	case ETHERTYPE_LAT:

@@ -65,6 +65,7 @@ int	fchmod(int, int);
 int	fchown(int, int, int);
 void	endgrent(void);
 void	endpwent(void);
+void	endservent(void);
 #ifdef __STDC__
 struct	ether_addr;
 #endif
@@ -145,6 +146,7 @@ int	select(int, fd_set *, fd_set *, fd_set *, struct timeval *);
 int	setpgrp(int, int);
 void	setpwent(void);
 int	setrlimit(int, struct rlimit *);
+void	setservent(int);
 int	setsockopt(int, int, int, char *, int);
 int	shutdown(int, int);
 int	sigblock(int);
@@ -155,7 +157,7 @@ int	sigsetmask(int);
 struct	sigvec;
 #endif
 int	sigvec(int, struct sigvec *, struct sigvec*);
-int	pcap_snprintf(char *, size_t, const char *, ...);
+int	snprintf(char *, size_t, const char *, ...);
 int	socket(int, int, int);
 int	socketpair(int, int, int, int *);
 int	symlink(const char *, const char *);

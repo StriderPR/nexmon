@@ -18,7 +18,6 @@
 
 package de.tu_darmstadt.seemoo.nexmon.gui;
 
-import android.app.Fragment;
 import android.content.Intent;
 import android.os.Bundle;
 import android.os.Environment;
@@ -42,7 +41,9 @@ import de.tu_darmstadt.seemoo.nexmon.sharky.PcapFileWriter;
 /**
  * Created by fabian on 9/25/16.
  */
-public class PcapConcatFragment extends Fragment{
+public class PcapConcatFragment extends TrackingFragment{
+
+
 
         private static final int HANDLER_SHOW_LOADING = 1;
         private static final int HANDLER_DISMISS_LOADING = 2;
@@ -131,7 +132,12 @@ public class PcapConcatFragment extends Fragment{
 
         }
 
-        @Override
+    @Override
+    public String getTrackingName() {
+        return "Screen: PCAP concat";
+    }
+
+    @Override
         public void onPause() {
             super.onPause();
         }

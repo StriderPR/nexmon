@@ -7,6 +7,9 @@ import android.os.IBinder;
 import android.support.annotation.Nullable;
 import android.util.Log;
 
+import com.google.android.gms.analytics.HitBuilders;
+import com.google.android.gms.analytics.Tracker;
+
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -45,6 +48,12 @@ public class APfinderService extends Service implements IFrameReceiver {
         isRunning = true;
         sendMonitorModeBroadcast(true);
         startTime = System.currentTimeMillis();
+
+        Tracker tracker = MyApplication.getDefaultTracker();
+        tracker.send(new HitBuilders.EventBuilder()
+                .setCategory("Airodump")
+                .setAction("Live Capturing started")
+                .build());
     }
 
     private void sendMonitorModeBroadcast(boolean monitorModeNeeded) {
@@ -75,6 +84,21 @@ public class APfinderService extends Service implements IFrameReceiver {
         MyApplication.getFrameReceiver().getObserver().removeObserver(this);
         isRunning = false;
         sendMonitorModeBroadcast(false);
+
+        Tracker tracker = MyApplication.getDefaultTracker();
+
+        tracker.send(new HitBuilders.TimingBuilder()
+                .setCategory("Runtime")
+                .setVariable("Airodump")
+                .setValue(System.currentTimeMillis() - startTime)
+                .build());
+
+
+        tracker.send(new HitBuilders.EventBuilder()
+                .setCategory("Airodump")
+                .setAction("Live capturing stopped")
+                .build());
+
     }
 
     public AccessPoint getAccessPoint(String bssid) {

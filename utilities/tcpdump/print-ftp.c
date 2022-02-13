@@ -11,13 +11,16 @@
  * FOR A PARTICULAR PURPOSE.
  */
 
-/* \summary: File Transfer Protocol (FTP) printer */
+#ifndef lint
+static const char rcsid[] _U_ =
+    "@(#) $Header$";
+#endif
 
 #ifdef HAVE_CONFIG_H
 #include "config.h"
 #endif
 
-#include <netdissect-stdinc.h>
+#include <tcpdump-stdinc.h>
 
 #include <stdio.h>
 #include <stdlib.h>

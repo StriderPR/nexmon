@@ -20,15 +20,14 @@
  *
  */
 
-/* \summary: ATM LANE printer */
-
+#define NETDISSECT_REWORKED
 #ifdef HAVE_CONFIG_H
 #include "config.h"
 #endif
 
-#include <netdissect-stdinc.h>
+#include <tcpdump-stdinc.h>
 
-#include "netdissect.h"
+#include "interface.h"
 #include "extract.h"
 #include "ether.h"
 
@@ -83,14 +82,14 @@ lane_hdr_print(netdissect_options *ndo, const u_char *bp)
 void
 lane_print(netdissect_options *ndo, const u_char *p, u_int length, u_int caplen)
 {
-	const struct lane_controlhdr *lec;
+	struct lane_controlhdr *lec;
 
 	if (caplen < sizeof(struct lane_controlhdr)) {
 		ND_PRINT((ndo, "[|lane]"));
 		return;
 	}
 
-	lec = (const struct lane_controlhdr *)p;
+	lec = (struct lane_controlhdr *)p;
 	if (EXTRACT_16BITS(&lec->lec_header) == 0xff00) {
 		/*
 		 * LE Control.

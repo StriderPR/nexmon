@@ -34,6 +34,8 @@ import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
 
+import com.google.android.gms.analytics.HitBuilders;
+import com.google.android.gms.analytics.Tracker;
 import com.stericson.RootShell.execution.Command;
 import com.stericson.RootTools.RootTools;
 
@@ -63,6 +65,11 @@ public class SettingsFragment extends PreferenceFragment implements SharedPrefer
     private static final int COMMAND_PULLDOWN_WLAN = 53;
     private static final int COMMAND_SET_CHANNEL = 54;
 
+    private Tracker mTracker;
+
+
+
+
     Handler guiHandler;
 
     public SettingsFragment() {
@@ -76,6 +83,7 @@ public class SettingsFragment extends PreferenceFragment implements SharedPrefer
 
         // Obtain the shared Tracker instance.
         MyApplication application = (MyApplication) getActivity().getApplication();
+        mTracker = application.getDefaultTracker();
 
         addPreferencesFromResource(R.xml.pentest_preferences);
 
@@ -143,6 +151,8 @@ public class SettingsFragment extends PreferenceFragment implements SharedPrefer
     @Override
     public void onResume() {
         super.onResume();
+        mTracker.setScreenName("Screen: Settings");
+        mTracker.send(new HitBuilders.ScreenViewBuilder().build());
         getPreferenceManager().getSharedPreferences().registerOnSharedPreferenceChangeListener(this);
 
         // Disable: We dont know the status yet.

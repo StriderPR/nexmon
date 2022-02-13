@@ -42,7 +42,7 @@
 #include <ctype.h>
 #include <sys/types.h>
 
-#include "netdissect.h"
+#include <interface.h>
 
 enum format_flags {
     minus_flag     =  1,

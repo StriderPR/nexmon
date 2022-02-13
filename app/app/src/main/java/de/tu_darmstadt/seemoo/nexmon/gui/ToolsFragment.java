@@ -18,12 +18,11 @@
 
 package de.tu_darmstadt.seemoo.nexmon.gui;
 
-import android.app.Fragment;
+
 import android.content.res.AssetManager;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.Message;
-import android.os.Environment;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
@@ -33,6 +32,8 @@ import android.widget.CheckBox;
 import android.widget.Spinner;
 import android.widget.Toast;
 
+import com.google.android.gms.analytics.HitBuilders;
+import com.google.android.gms.analytics.Tracker;
 import com.roger.catloadinglibrary.CatLoadingView;
 import com.stericson.RootShell.exceptions.RootDeniedException;
 import com.stericson.RootShell.execution.Command;
@@ -49,14 +50,14 @@ import de.tu_darmstadt.seemoo.nexmon.MyApplication;
 import de.tu_darmstadt.seemoo.nexmon.R;
 
 
-public class ToolsFragment extends Fragment {
+public class ToolsFragment extends TrackingFragment {
 
     private final static int GUI_SHOW_TOAST = 111;
     private final static int GUI_SHOW_LOADING = 112;
     private final static int GUI_DISMISS_LOADING = 113;
 
-	private String sdCardPath;
     private CatLoadingView loadingView;
+
     private Handler guiHandler;
     private CheckBox chkRawproxy;
     private CheckBox chkRawproxyreverse;
@@ -75,7 +76,6 @@ public class ToolsFragment extends Fragment {
     private Button btnInstall;
 
     public ToolsFragment() {
-    	sdCardPath = Environment.getExternalStorageDirectory().getAbsolutePath() + "/";
         // Required empty public constructor
     }
 
@@ -86,7 +86,7 @@ public class ToolsFragment extends Fragment {
      * @return A new instance of fragment.
      */
     public static ToolsFragment newInstance() {
-    	ToolsFragment fragment = new ToolsFragment();
+        ToolsFragment fragment = new ToolsFragment();
         return fragment;
     }
 
@@ -119,6 +119,8 @@ public class ToolsFragment extends Fragment {
                         break;
                     default:
                         break;
+
+
                 }
             }
         };
@@ -183,7 +185,7 @@ public class ToolsFragment extends Fragment {
         } else if(Model.contains("Nexus 5")) {
             spnBinInstallLocation.setSelection(0);  // set /system/bin
             spnLibInstallLocation.setSelection(0);  // set /system/lib
-    	}
+        }
     }
 
     private void copyFile(InputStream in, OutputStream out) throws IOException {
@@ -197,25 +199,24 @@ public class ToolsFragment extends Fragment {
         AssetManager assetManager = MyApplication.getAssetManager();
         String[] files = null;
         files = assetManager.list("nexmon");
-        File folder = new File(sdCardPath + "/nexmon");
-        if(!folder.exists()) folder.mkdir();
-
         if (files != null) for (String filename : files) {
             InputStream in = null;
             OutputStream out = null;
             in = assetManager.open("nexmon/" + filename);
-            File outFile = new File(sdCardPath + "/nexmon", filename);
+            File outFile = new File(MyApplication.getAppContext().getExternalFilesDir(null), filename);
             out = new FileOutputStream(outFile);
             copyFile(in, out);
             if (in != null) in.close();
             if (out != null) out.close();
         }
+
+
     }
 
     private void copyExtractedAsset(final String installLocation, final String filename) throws TimeoutException, IOException, RootDeniedException {
-        RootTools.getShell(true).add(new Command(0, "mount -o rw,remount /system", "mount -o rw,remount /", //root for /su path
+        RootTools.getShell(true).add(new Command(0, "mount -o remount,rw /system",
                 "rm -f " + installLocation + "/" + filename,
-                "cp " + sdCardPath + "nexmon/" + filename + " " + installLocation,
+                "cp " + MyApplication.getAppContext().getExternalFilesDir(null) + "/" + filename + " " + installLocation,
                 "chmod 755 " + installLocation + "/" + filename) {
 
             @Override
@@ -224,6 +225,13 @@ public class ToolsFragment extends Fragment {
                 File file = new File(installLocation + "/" + filename);
                 if(!file.exists()) {
                     toast("ERROR: Can't install to " + installLocation + "/" + filename);
+
+                    Tracker tracker = MyApplication.getDefaultTracker();
+                    tracker.send(new HitBuilders.EventBuilder()
+                            .setCategory("Error")
+                            .setLabel("Tools")
+                            .setAction("ERROR: Can't install to " + installLocation + "/" + filename)
+                            .build());
                 }
             }
         });
@@ -239,35 +247,72 @@ public class ToolsFragment extends Fragment {
                 try {
                     guiHandler.sendEmptyMessage(GUI_SHOW_LOADING);
                     extractAssets();
+                    Tracker tracker = MyApplication.getDefaultTracker();
 
                     if (chkRawproxy.isChecked()) {
                         //toast("Installing rawproxy ...");
                         copyExtractedAsset(binInstallLocation, "rawproxy");
+
+                        tracker.send(new HitBuilders.EventBuilder()
+                                .setCategory("Tools")
+                                .setLabel("rawproxy")
+                                .setAction("install")
+                                .build());
                     }
 
                     if (chkRawproxyreverse.isChecked()) {
                         //toast("Installing rawproxyreverse ...");
                         copyExtractedAsset(binInstallLocation, "rawproxyreverse");
+
+                        tracker.send(new HitBuilders.EventBuilder()
+                                .setCategory("Tools")
+                                .setLabel("rawproxyreverse")
+                                .setAction("install")
+                                .build());
                     }
 
                     if (chkDhdutil.isChecked()) {
                         //toast("Installing dhdutil ...");
                         copyExtractedAsset(binInstallLocation, "dhdutil");
+
+                        tracker.send(new HitBuilders.EventBuilder()
+                                .setCategory("Tools")
+                                .setLabel("dhdutil")
+                                .setAction("install")
+                                .build());
                     }
 
                     if (chkNexutil.isChecked()) {
                         //toast("Installing nexutil ...");
                         copyExtractedAsset(binInstallLocation, "nexutil");
+
+                        tracker.send(new HitBuilders.EventBuilder()
+                                .setCategory("Tools")
+                                .setLabel("nexutil")
+                                .setAction("install")
+                                .build());
                     }
 
                     if (chkTcpdump.isChecked()) {
                         //toast("Installing tcpdump ...");
                         copyExtractedAsset(binInstallLocation, "tcpdump");
+
+                        tracker.send(new HitBuilders.EventBuilder()
+                                .setCategory("Tools")
+                                .setLabel("tcpdump")
+                                .setAction("install")
+                                .build());
                     }
 
                     if (chkLibfakeioctl.isChecked()) {
                         //toast("Installing tcpdump ...");
                         copyExtractedAsset(libInstallLocation, "libfakeioctl.so");
+
+                        tracker.send(new HitBuilders.EventBuilder()
+                                .setCategory("Tools")
+                                .setLabel("libfakeioctl.so")
+                                .setAction("install")
+                                .build());
                     }
 
                     if (chkAircrack.isChecked()) {
@@ -291,16 +336,34 @@ public class ToolsFragment extends Fragment {
                         copyExtractedAsset(binInstallLocation, "tkiptun-ng");
                         copyExtractedAsset(binInstallLocation, "wesside-ng");
                         copyExtractedAsset(binInstallLocation, "wpaclean");
+
+                        tracker.send(new HitBuilders.EventBuilder()
+                                .setCategory("Tools")
+                                .setLabel("Aircrack")
+                                .setAction("install")
+                                .build());
                     }
 
                     if (chkNetcat.isChecked()) {
                         //toast("Installing netcat ...");
-			copyExtractedAsset(binInstallLocation, "nc");
+                        copyExtractedAsset(binInstallLocation, "nc");
+
+                        tracker.send(new HitBuilders.EventBuilder()
+                                .setCategory("Tools")
+                                .setLabel("Netcat")
+                                .setAction("install")
+                                .build());
                     }
 
                     if (chkIw.isChecked()) {
                         //toast("Installing iw ...");
                         copyExtractedAsset(binInstallLocation, "iw");
+
+                        tracker.send(new HitBuilders.EventBuilder()
+                                .setCategory("Tools")
+                                .setLabel("iw")
+                                .setAction("install")
+                                .build());
                     }
 
                     if (chkWirelessTools.isChecked()) {
@@ -308,17 +371,36 @@ public class ToolsFragment extends Fragment {
                         copyExtractedAsset(binInstallLocation, "iwconfig");
                         copyExtractedAsset(binInstallLocation, "iwlist");
                         copyExtractedAsset(binInstallLocation, "iwpriv");
+
+                        tracker.send(new HitBuilders.EventBuilder()
+                                .setCategory("Tools")
+                                .setLabel("WirelessTools")
+                                .setAction("installed")
+                                .build());
                     }
 
                     if (chkMdk3.isChecked()) {
                         //toast("Installing mdk3 ...");
                         copyExtractedAsset(binInstallLocation, "mdk3");
+
+                        tracker.send(new HitBuilders.EventBuilder()
+                                .setCategory("Tools")
+                                .setLabel("MDK3")
+                                .setAction("installed")
+                                .build());
                     }
 
                     if (chkSocat.isChecked()) {
                         //toast("Installing mdk3 ...");
                         copyExtractedAsset(binInstallLocation, "socat");
+
+                        tracker.send(new HitBuilders.EventBuilder()
+                                .setCategory("Tools")
+                                .setLabel("socat")
+                                .setAction("installed")
+                                .build());
                     }
+
 
                     Thread.sleep(3000);
                     MyApplication.evaluateAll();
@@ -329,6 +411,8 @@ public class ToolsFragment extends Fragment {
                 }
             }
         }).start();
+
+
     }
 
     private void toast(String msg) {
@@ -336,5 +420,12 @@ public class ToolsFragment extends Fragment {
         message.what = GUI_SHOW_TOAST;
         message.obj = msg;
         guiHandler.sendMessage(message);
+    }
+
+
+
+    @Override
+    public String getTrackingName() {
+        return "Screen: Tools";
     }
 }

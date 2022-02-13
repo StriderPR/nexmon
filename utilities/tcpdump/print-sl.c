@@ -19,16 +19,15 @@
  * MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE.
  */
 
-/* \summary: Compressed Serial Line Internet Protocol printer */
-
+#define NETDISSECT_REWORKED
 #ifdef HAVE_CONFIG_H
 #include "config.h"
 #endif
 
-#include <netdissect-stdinc.h>
+#include <tcpdump-stdinc.h>
 
-#include "netdissect.h"
-#include "extract.h"
+#include "interface.h"
+#include "extract.h"			/* must come after interface.h */
 
 #include "ip.h"
 #include "tcp.h"
@@ -68,25 +67,19 @@ sl_if_print(netdissect_options *ndo,
 		return (caplen);
 	}
 
-	caplen -= SLIP_HDRLEN;
 	length -= SLIP_HDRLEN;
 
-	ip = (const struct ip *)(p + SLIP_HDRLEN);
+	ip = (struct ip *)(p + SLIP_HDRLEN);
 
 	if (ndo->ndo_eflag)
 		sliplink_print(ndo, p, ip, length);
 
-	if (caplen < 1 || length < 1) {
-		ND_PRINT((ndo, "%s", tstr));
-		return (caplen + SLIP_HDRLEN);
-	}
-
 	switch (IP_V(ip)) {
 	case 4:
-	        ip_print(ndo, (const u_char *)ip, length);
+	        ip_print(ndo, (u_char *)ip, length);
 		break;
 	case 6:
-		ip6_print(ndo, (const u_char *)ip, length);
+		ip6_print(ndo, (u_char *)ip, length);
 		break;
 	default:
 		ND_PRINT((ndo, "ip v%d", IP_V(ip)));
@@ -110,14 +103,14 @@ sl_bsdos_if_print(netdissect_options *ndo,
 
 	length -= SLIP_HDRLEN;
 
-	ip = (const struct ip *)(p + SLIP_HDRLEN);
+	ip = (struct ip *)(p + SLIP_HDRLEN);
 
 #ifdef notdef
 	if (ndo->ndo_eflag)
 		sliplink_print(ndo, p, ip, length);
 #endif
 
-	ip_print(ndo, (const u_char *)ip, length);
+	ip_print(ndo, (u_char *)ip, length);
 
 	return (SLIP_HDRLEN);
 }
@@ -131,21 +124,8 @@ sliplink_print(netdissect_options *ndo,
 	u_int hlen;
 
 	dir = p[SLX_DIR];
-	switch (dir) {
+	ND_PRINT((ndo, dir == SLIPDIR_IN ? "I " : "O "));
 
-	case SLIPDIR_IN:
-		ND_PRINT((ndo, "I "));
-		break;
-
-	case SLIPDIR_OUT:
-		ND_PRINT((ndo, "O "));
-		break;
-
-	default:
-		ND_PRINT((ndo, "Invalid direction %d ", dir));
-		dir = -1;
-		break;
-	}
 	if (ndo->ndo_nflag) {
 		/* XXX just dump the header */
 		register int i;
@@ -167,22 +147,14 @@ sliplink_print(netdissect_options *ndo,
 		 * Get it from the link layer since sl_uncompress_tcp()
 		 * has restored the IP header copy to IPPROTO_TCP.
 		 */
-		lastconn = ((const struct ip *)&p[SLX_CHDR])->ip_p;
-		ND_PRINT((ndo, "utcp %d: ", lastconn));
-		if (dir == -1) {
-			/* Direction is bogus, don't use it */
-			return;
-		}
+		lastconn = ((struct ip *)&p[SLX_CHDR])->ip_p;
 		hlen = IP_HL(ip);
-		hlen += TH_OFF((const struct tcphdr *)&((const int *)ip)[hlen]);
+		hlen += TH_OFF((struct tcphdr *)&((int *)ip)[hlen]);
 		lastlen[dir][lastconn] = length - (hlen << 2);
+		ND_PRINT((ndo, "utcp %d: ", lastconn));
 		break;
 
 	default:
-		if (dir == -1) {
-			/* Direction is bogus, don't use it */
-			return;
-		}
 		if (p[SLX_CHDR] & TYPE_COMPRESSED_TCP) {
 			compressed_sl_print(ndo, &p[SLX_CHDR], ip,
 			    length, dir);
@@ -270,7 +242,7 @@ compressed_sl_print(netdissect_options *ndo,
 	 * 'length - hlen' is the amount of data in the packet.
 	 */
 	hlen = IP_HL(ip);
-	hlen += TH_OFF((const struct tcphdr *)&((const int32_t *)ip)[hlen]);
+	hlen += TH_OFF((struct tcphdr *)&((int32_t *)ip)[hlen]);
 	lastlen[dir][lastconn] = length - (hlen << 2);
 	ND_PRINT((ndo, " %d (%ld)", lastlen[dir][lastconn], (long)(cp - chdr)));
 }

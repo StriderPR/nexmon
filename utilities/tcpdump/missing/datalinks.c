@@ -35,7 +35,7 @@
 #include "config.h"
 #endif
 
-#include <netdissect-stdinc.h>
+#include <tcpdump-stdinc.h>
 
 #include <pcap.h>
 #include <stdlib.h>

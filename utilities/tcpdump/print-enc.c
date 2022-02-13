@@ -21,15 +21,14 @@
  * MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE.
  */
 
-/* \summary: OpenBSD IPsec encapsulation BPF layer printer */
-
+#define NETDISSECT_REWORKED
 #ifdef HAVE_CONFIG_H
 #include "config.h"
 #endif
 
-#include <netdissect-stdinc.h>
+#include <tcpdump-stdinc.h>
 
-#include "netdissect.h"
+#include "interface.h"
 #include "extract.h"
 
 /* From $OpenBSD: if_enc.h,v 1.8 2001/06/25 05:14:00 angelos Exp $ */
@@ -99,7 +98,7 @@ enc_if_print(netdissect_options *ndo,
 		goto out;
 	}
 
-	hdr = (const struct enchdr *)p;
+	hdr = (struct enchdr *)p;
 	flags = hdr->flags;
 	if (flags == 0)
 		ND_PRINT((ndo, "(unprotected): "));

@@ -6,17 +6,16 @@
  * or later
  */
 
-/* \summary: SMB/CIFS printer */
-
+#define NETDISSECT_REWORKED
 #ifdef HAVE_CONFIG_H
 #include "config.h"
 #endif
 
-#include <netdissect-stdinc.h>
+#include <tcpdump-stdinc.h>
 
 #include <string.h>
 
-#include "netdissect.h"
+#include "interface.h"
 #include "extract.h"
 #include "smb.h"
 
@@ -101,7 +100,7 @@ trans2_findfirst(netdissect_options *ndo,
     smb_fdata(ndo, param, fmt, param + pcnt, unicodestr);
     if (dcnt) {
 	ND_PRINT((ndo, "data:\n"));
-	smb_print_data(ndo, data, dcnt);
+	print_data(ndo, data, dcnt);
     }
 }
 
@@ -136,7 +135,7 @@ trans2_qfsinfo(netdissect_options *ndo,
     }
     if (dcnt) {
 	ND_PRINT((ndo, "data:\n"));
-	smb_print_data(ndo, data, dcnt);
+	print_data(ndo, data, dcnt);
     }
     return;
 trunc:
@@ -417,7 +416,7 @@ print_negprot(netdissect_options *ndo,
 	smb_fdata(ndo, words + 1, f1, min(words + 1 + wct * 2, maxbuf),
 	    unicodestr);
     else
-	smb_print_data(ndo, words + 1, min(wct * 2, PTR_DIFF(maxbuf, words + 1)));
+	print_data(ndo, words + 1, min(wct * 2, PTR_DIFF(maxbuf, words + 1)));
 
     ND_TCHECK2(*data, 2);
     bcc = EXTRACT_LE_16BITS(data);
@@ -427,7 +426,7 @@ print_negprot(netdissect_options *ndo,
 	    smb_fdata(ndo, data + 2, f2, min(data + 2 + EXTRACT_LE_16BITS(data),
 		maxbuf), unicodestr);
 	else
-	    smb_print_data(ndo, data + 2, min(EXTRACT_LE_16BITS(data), PTR_DIFF(maxbuf, data + 2)));
+	    print_data(ndo, data + 2, min(EXTRACT_LE_16BITS(data), PTR_DIFF(maxbuf, data + 2)));
     }
     return;
 trunc:
@@ -461,7 +460,7 @@ print_sesssetup(netdissect_options *ndo,
 	smb_fdata(ndo, words + 1, f1, min(words + 1 + wct * 2, maxbuf),
 	    unicodestr);
     else
-	smb_print_data(ndo, words + 1, min(wct * 2, PTR_DIFF(maxbuf, words + 1)));
+	print_data(ndo, words + 1, min(wct * 2, PTR_DIFF(maxbuf, words + 1)));
 
     ND_TCHECK2(*data, 2);
     bcc = EXTRACT_LE_16BITS(data);
@@ -471,7 +470,7 @@ print_sesssetup(netdissect_options *ndo,
 	    smb_fdata(ndo, data + 2, f2, min(data + 2 + EXTRACT_LE_16BITS(data),
 		maxbuf), unicodestr);
 	else
-	    smb_print_data(ndo, data + 2, min(EXTRACT_LE_16BITS(data), PTR_DIFF(maxbuf, data + 2)));
+	    print_data(ndo, data + 2, min(EXTRACT_LE_16BITS(data), PTR_DIFF(maxbuf, data + 2)));
     }
     return;
 trunc:
@@ -511,7 +510,7 @@ print_lockingandx(netdissect_options *ndo,
 	    smb_fdata(ndo, data + 2, f2, min(data + 2 + EXTRACT_LE_16BITS(data),
 		maxbuf), unicodestr);
 	else
-	    smb_print_data(ndo, data + 2, min(EXTRACT_LE_16BITS(data), PTR_DIFF(maxbuf, data + 2)));
+	    print_data(ndo, data + 2, min(EXTRACT_LE_16BITS(data), PTR_DIFF(maxbuf, data + 2)));
     }
     return;
 trunc:
@@ -806,6 +805,9 @@ print_smb(netdissect_options *ndo,
 
     ND_TCHECK(buf[9]);
     request = (buf[9] & 0x80) ? 0 : 1;
+    flags2 = EXTRACT_LE_16BITS(&buf[10]);
+    unicodestr = flags2 & 0x8000;
+    nterrcodes = flags2 & 0x4000;
     startbuf = buf;
 
     command = buf[4];
@@ -819,11 +821,6 @@ print_smb(netdissect_options *ndo,
 
     if (ndo->ndo_vflag < 2)
 	return;
-
-    ND_TCHECK_16BITS(&buf[10]);
-    flags2 = EXTRACT_LE_16BITS(&buf[10]);
-    unicodestr = flags2 & 0x8000;
-    nterrcodes = flags2 & 0x4000;
 
     /* print out the header */
     smb_fdata(ndo, buf, fmt_smbheader, buf + 33, unicodestr);
@@ -886,7 +883,7 @@ print_smb(netdissect_options *ndo,
 	    } else {
 		if (bcc > 0) {
 		    ND_PRINT((ndo, "smb_buf[]=\n"));
-		    smb_print_data(ndo, data + 2, min(bcc, PTR_DIFF(maxbuf, data + 2)));
+		    print_data(ndo, data + 2, min(bcc, PTR_DIFF(maxbuf, data + 2)));
 		}
 	    }
 	}
@@ -1167,12 +1164,10 @@ nbt_udp137_print(netdissect_options *ndo,
 	    p = smb_fdata(ndo, p, "Name=[n1]\n#", maxbuf, 0);
 	    if (p == NULL)
 		goto out;
-	    ND_TCHECK_16BITS(p);
 	    restype = EXTRACT_16BITS(p);
 	    p = smb_fdata(ndo, p, "ResType=[rw]\nResClass=[rw]\nTTL=[rD]\n", p + 8, 0);
 	    if (p == NULL)
 		goto out;
-	    ND_TCHECK_16BITS(p);
 	    rdlen = EXTRACT_16BITS(p);
 	    ND_PRINT((ndo, "ResourceLength=%d\nResourceData=\n", rdlen));
 	    p += 2;
@@ -1214,7 +1209,7 @@ nbt_udp137_print(netdissect_options *ndo,
 			p += 2;
 		    }
 		} else {
-		    smb_print_data(ndo, p, min(rdlen, length - (p - data)));
+		    print_data(ndo, p, min(rdlen, length - (p - data)));
 		    p += rdlen;
 		}
 	    }
@@ -1314,7 +1309,7 @@ out:
 /*
    print netbeui frames
 */
-static struct nbf_strings {
+struct nbf_strings {
 	const char	*name;
 	const char	*nonverbose;
 	const char	*verbose;

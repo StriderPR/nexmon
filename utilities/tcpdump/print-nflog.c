@@ -25,24 +25,23 @@
  * DAMAGE.
  */
 
-/* \summary: DLT_NFLOG printer */
-
+#define NETDISSECT_REWORKED
 #ifdef HAVE_CONFIG_H
 #include "config.h"
 #endif
 
-#include <netdissect-stdinc.h>
+#include <tcpdump-stdinc.h>
 
-#include "netdissect.h"
+#include "interface.h"
 
 #if defined(DLT_NFLOG) && defined(HAVE_PCAP_NFLOG_H)
 #include <pcap/nflog.h>
 
 static const struct tok nflog_values[] = {
 	{ AF_INET,		"IPv4" },
-#ifdef AF_INET6
+#ifdef INET6
 	{ AF_INET6,		"IPv6" },
-#endif /*AF_INET6*/
+#endif /*INET6*/
 	{ 0,			NULL }
 };
 

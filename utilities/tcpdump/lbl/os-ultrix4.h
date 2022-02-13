@@ -34,3 +34,4 @@ int	ioctl(int, int, caddr_t);
 int	pfopen(char *, int);
 int	setlinebuf(FILE *);
 int	socket(int, int, int);
+int	strcasecmp(const char *, const char *);

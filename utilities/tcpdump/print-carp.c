@@ -34,15 +34,14 @@
  *
  */
 
-/* \summary: Common Address Redundancy Protocol (CARP) printer */
-
+#define NETDISSECT_REWORKED
 #ifdef HAVE_CONFIG_H
 #include "config.h"
 #endif
 
-#include <netdissect-stdinc.h>
+#include <tcpdump-stdinc.h>
 
-#include "netdissect.h" /* for checksum structure and functions */
+#include "interface.h" /* for checksum structure and functions */
 #include "extract.h"
 
 void

@@ -30,18 +30,17 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 
-/* \summary: SunATM DLPI capture printer */
-
+#define NETDISSECT_REWORKED
 #ifdef HAVE_CONFIG_H
 #include "config.h"
 #endif
 
-#include <netdissect-stdinc.h>
+#include <tcpdump-stdinc.h>
 
 struct mbuf;
 struct rtentry;
 
-#include "netdissect.h"
+#include "interface.h"
 #include "extract.h"
 
 #include "atm.h"

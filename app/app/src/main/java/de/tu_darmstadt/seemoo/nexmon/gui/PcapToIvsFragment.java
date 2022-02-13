@@ -18,7 +18,6 @@
 
 package de.tu_darmstadt.seemoo.nexmon.gui;
 
-import android.app.Fragment;
 import android.content.Intent;
 import android.os.Bundle;
 import android.os.Environment;
@@ -39,7 +38,7 @@ import de.tu_darmstadt.seemoo.nexmon.sharky.IvsTools;
 /**
  * Created by fabian on 9/26/16.
  */
-public class PcapToIvsFragment extends Fragment {
+public class PcapToIvsFragment extends TrackingFragment {
 
     private static final int HANDLER_SHOW_LOADING = 1;
     private static final int HANDLER_DISMISS_LOADING = 2;
@@ -119,6 +118,11 @@ public class PcapToIvsFragment extends Fragment {
     public void onResume() {
         super.onResume();
 
+    }
+
+    @Override
+    public String getTrackingName() {
+        return "Screen: PCAP to IVS";
     }
 
     @Override

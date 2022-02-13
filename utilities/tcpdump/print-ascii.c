@@ -36,16 +36,15 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 
-/* \summary: ASCII packet dump printer */
-
+#define NETDISSECT_REWORKED
 #ifdef HAVE_CONFIG_H
 #include "config.h"
 #endif
 
-#include <netdissect-stdinc.h>
+#include <tcpdump-stdinc.h>
 #include <stdio.h>
 
-#include "netdissect.h"
+#include "interface.h"
 
 #define ASCII_LINELENGTH 300
 #define HEXDUMP_BYTES_PER_LINE 16

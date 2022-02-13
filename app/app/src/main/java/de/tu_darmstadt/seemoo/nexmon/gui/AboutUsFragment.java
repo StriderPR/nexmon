@@ -18,6 +18,7 @@
 
 package de.tu_darmstadt.seemoo.nexmon.gui;
 
+
 import android.app.Fragment;
 import android.content.Intent;
 import android.net.Uri;
@@ -33,7 +34,7 @@ import de.tu_darmstadt.seemoo.nexmon.R;
 /**
  * A simple {@link Fragment} subclass.
  */
-public class AboutUsFragment extends Fragment {
+public class AboutUsFragment extends TrackingFragment {
 
     private ImageView imgTudLogo;
     private ImageView imgSeemooLogo;
@@ -99,6 +100,13 @@ public class AboutUsFragment extends Fragment {
         });
 
         return view;
+    }
+
+
+
+    @Override
+    public String getTrackingName() {
+        return "Screen: About us";
     }
 
     @Override

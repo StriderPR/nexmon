@@ -33,12 +33,16 @@
  */
 
 #ifdef HAVE_CONFIG_H
-#include <config.h>
+#include "config.h"
 #endif
 
 #include "pcap-int.h"
 #include "pcap-bt-linux.h"
 #include "pcap/bluetooth.h"
+
+#ifdef NEED_STRERROR_H
+#include "strerror.h"
+#endif
 
 #include <errno.h>
 #include <stdlib.h>
@@ -70,29 +74,28 @@ struct pcap_bt {
 };
 
 int
-bt_findalldevs(pcap_if_list_t *devlistp, char *err_str)
+bt_findalldevs(pcap_if_t **alldevsp, char *err_str)
 {
 	struct hci_dev_list_req *dev_list;
 	struct hci_dev_req *dev_req;
-	int sock;
-	unsigned i;
+	int i, sock;
 	int ret = 0;
 
 	sock  = socket(AF_BLUETOOTH, SOCK_RAW, BTPROTO_HCI);
 	if (sock < 0)
 	{
-		/* if bluetooth is not supported this is not fatal*/
+		/* if bluetooth is not supported this this is not fatal*/
 		if (errno == EAFNOSUPPORT)
 			return 0;
-		pcap_fmt_errmsg_for_errno(err_str, PCAP_ERRBUF_SIZE,
-		    errno, "Can't open raw Bluetooth socket");
+		snprintf(err_str, PCAP_ERRBUF_SIZE,
+		    "Can't open raw Bluetooth socket: %s", strerror(errno));
 		return -1;
 	}
 
 	dev_list = malloc(HCI_MAX_DEV * sizeof(*dev_req) + sizeof(*dev_list));
 	if (!dev_list)
 	{
-		pcap_snprintf(err_str, PCAP_ERRBUF_SIZE, "Can't allocate %zu bytes for Bluetooth device list",
+		snprintf(err_str, PCAP_ERRBUF_SIZE, "Can't allocate %zu bytes for Bluetooth device list",
 			HCI_MAX_DEV * sizeof(*dev_req) + sizeof(*dev_list));
 		ret = -1;
 		goto done;
@@ -102,32 +105,27 @@ bt_findalldevs(pcap_if_list_t *devlistp, char *err_str)
 
 	if (ioctl(sock, HCIGETDEVLIST, (void *) dev_list) < 0)
 	{
-		pcap_fmt_errmsg_for_errno(err_str, PCAP_ERRBUF_SIZE,
-		    errno, "Can't get Bluetooth device list via ioctl");
+		snprintf(err_str, PCAP_ERRBUF_SIZE,
+		    "Can't get Bluetooth device list via ioctl: %s",
+		    strerror(errno));
 		ret = -1;
 		goto free;
 	}
 
 	dev_req = dev_list->dev_req;
 	for (i = 0; i < dev_list->dev_num; i++, dev_req++) {
-		char dev_name[20], dev_descr[40];
+		char dev_name[20], dev_descr[30];
 
-		pcap_snprintf(dev_name, sizeof(dev_name), BT_IFACE"%u", dev_req->dev_id);
-		pcap_snprintf(dev_descr, sizeof(dev_descr), "Bluetooth adapter number %u", i);
+		snprintf(dev_name, 20, BT_IFACE"%d", dev_req->dev_id);
+		snprintf(dev_descr, 30, "Bluetooth adapter number %d", i);
 
-		/*
-		 * Bluetooth is a wireless technology.
-		 * XXX - if there's the notion of associating with a
-		 * network, and we can determine whether the interface
-		 * is associated with a network, check that and set
-		 * the status to PCAP_IF_CONNECTION_STATUS_CONNECTED
-		 * or PCAP_IF_CONNECTION_STATUS_DISCONNECTED.
-		 */
-		if (add_dev(devlistp, dev_name, PCAP_IF_WIRELESS, dev_descr, err_str)  == NULL)
+		if (pcap_add_if(alldevsp, dev_name, 0,
+		       dev_descr, err_str) < 0)
 		{
 			ret = -1;
 			break;
 		}
+
 	}
 
 free:
@@ -173,7 +171,7 @@ bt_create(const char *device, char *ebuf, int *is_ours)
 	/* OK, it's probably ours. */
 	*is_ours = 1;
 
-	p = pcap_create_common(ebuf, sizeof (struct pcap_bt));
+	p = pcap_create_common(device, ebuf, sizeof (struct pcap_bt));
 	if (p == NULL)
 		return (NULL);
 
@@ -192,27 +190,17 @@ bt_activate(pcap_t* handle)
 	int err = PCAP_ERROR;
 
 	/* get bt interface id */
-	if (sscanf(handle->opt.device, BT_IFACE"%d", &dev_id) != 1)
+	if (sscanf(handle->opt.source, BT_IFACE"%d", &dev_id) != 1)
 	{
-		pcap_snprintf(handle->errbuf, PCAP_ERRBUF_SIZE,
+		snprintf(handle->errbuf, PCAP_ERRBUF_SIZE,
 			"Can't get Bluetooth device index from %s",
-			 handle->opt.device);
+			 handle->opt.source);
 		return PCAP_ERROR;
 	}
 
-	/*
-	 * Turn a negative snapshot value (invalid), a snapshot value of
-	 * 0 (unspecified), or a value bigger than the normal maximum
-	 * value, into the maximum allowed value.
-	 *
-	 * If some application really *needs* a bigger snapshot
-	 * length, we should just increase MAXIMUM_SNAPLEN.
-	 */
-	if (handle->snapshot <= 0 || handle->snapshot > MAXIMUM_SNAPLEN)
-		handle->snapshot = MAXIMUM_SNAPLEN;
-
 	/* Initialize some components of the pcap structure. */
-	handle->bufsize = BT_CTRL_SIZE+sizeof(pcap_bluetooth_h4_header)+handle->snapshot;
+	handle->bufsize = handle->snapshot+BT_CTRL_SIZE+sizeof(pcap_bluetooth_h4_header);
+	handle->offset = BT_CTRL_SIZE;
 	handle->linktype = DLT_BLUETOOTH_HCI_H4_WITH_PHDR;
 
 	handle->read_op = bt_read_linux;
@@ -228,29 +216,29 @@ bt_activate(pcap_t* handle)
 	/* Create HCI socket */
 	handle->fd = socket(AF_BLUETOOTH, SOCK_RAW, BTPROTO_HCI);
 	if (handle->fd < 0) {
-		pcap_fmt_errmsg_for_errno(handle->errbuf, PCAP_ERRBUF_SIZE,
-		    errno, "Can't create raw socket");
+		snprintf(handle->errbuf, PCAP_ERRBUF_SIZE,
+		    "Can't create raw socket: %s", strerror(errno));
 		return PCAP_ERROR;
 	}
 
 	handle->buffer = malloc(handle->bufsize);
 	if (!handle->buffer) {
-		pcap_fmt_errmsg_for_errno(handle->errbuf, PCAP_ERRBUF_SIZE,
-		    errno, "Can't allocate dump buffer");
+		snprintf(handle->errbuf, PCAP_ERRBUF_SIZE, "Can't allocate dump buffer: %s",
+			pcap_strerror(errno));
 		goto close_fail;
 	}
 
 	opt = 1;
 	if (setsockopt(handle->fd, SOL_HCI, HCI_DATA_DIR, &opt, sizeof(opt)) < 0) {
-		pcap_fmt_errmsg_for_errno(handle->errbuf, PCAP_ERRBUF_SIZE,
-		    errno, "Can't enable data direction info");
+		snprintf(handle->errbuf, PCAP_ERRBUF_SIZE,
+		    "Can't enable data direction info: %s", strerror(errno));
 		goto close_fail;
 	}
 
 	opt = 1;
 	if (setsockopt(handle->fd, SOL_HCI, HCI_TIME_STAMP, &opt, sizeof(opt)) < 0) {
-		pcap_fmt_errmsg_for_errno(handle->errbuf, PCAP_ERRBUF_SIZE,
-		    errno, "Can't enable time stamp");
+		snprintf(handle->errbuf, PCAP_ERRBUF_SIZE,
+		    "Can't enable time stamp: %s", strerror(errno));
 		goto close_fail;
 	}
 
@@ -260,8 +248,8 @@ bt_activate(pcap_t* handle)
 	memset((void *) &flt.type_mask, 0xff, sizeof(flt.type_mask));
 	memset((void *) &flt.event_mask, 0xff, sizeof(flt.event_mask));
 	if (setsockopt(handle->fd, SOL_HCI, HCI_FILTER, &flt, sizeof(flt)) < 0) {
-		pcap_fmt_errmsg_for_errno(handle->errbuf, PCAP_ERRBUF_SIZE,
-		    errno, "Can't set filter");
+		snprintf(handle->errbuf, PCAP_ERRBUF_SIZE,
+		    "Can't set filter: %s", strerror(errno));
 		goto close_fail;
 	}
 
@@ -269,12 +257,13 @@ bt_activate(pcap_t* handle)
 	/* Bind socket to the HCI device */
 	addr.hci_family = AF_BLUETOOTH;
 	addr.hci_dev = handlep->dev_id;
-#ifdef HAVE_STRUCT_SOCKADDR_HCI_HCI_CHANNEL
+#ifdef SOCKADDR_HCI_HAS_HCI_CHANNEL
 	addr.hci_channel = HCI_CHANNEL_RAW;
 #endif
 	if (bind(handle->fd, (struct sockaddr *) &addr, sizeof(addr)) < 0) {
-		pcap_fmt_errmsg_for_errno(handle->errbuf, PCAP_ERRBUF_SIZE,
-		    errno, "Can't attach to device %d", handlep->dev_id);
+		snprintf(handle->errbuf, PCAP_ERRBUF_SIZE,
+		    "Can't attach to device %d: %s", handlep->dev_id,
+		    strerror(errno));
 		goto close_fail;
 	}
 
@@ -293,8 +282,8 @@ bt_activate(pcap_t* handle)
 		if (setsockopt(handle->fd, SOL_SOCKET, SO_RCVBUF,
 		    &handle->opt.buffer_size,
 		    sizeof(handle->opt.buffer_size)) == -1) {
-			pcap_fmt_errmsg_for_errno(handle->errbuf,
-			    errno, PCAP_ERRBUF_SIZE, "SO_RCVBUF");
+			snprintf(handle->errbuf, PCAP_ERRBUF_SIZE,
+				 "SO_RCVBUF: %s", pcap_strerror(errno));
 			goto close_fail;
 		}
 	}
@@ -308,7 +297,7 @@ close_fail:
 }
 
 static int
-bt_read_linux(pcap_t *handle, int max_packets _U_, pcap_handler callback, u_char *user)
+bt_read_linux(pcap_t *handle, int max_packets, pcap_handler callback, u_char *user)
 {
 	struct cmsghdr *cmsg;
 	struct msghdr msg;
@@ -316,19 +305,16 @@ bt_read_linux(pcap_t *handle, int max_packets _U_, pcap_handler callback, u_char
 	ssize_t ret;
 	struct pcap_pkthdr pkth;
 	pcap_bluetooth_h4_header* bthdr;
-	u_char *pktd;
-	int in = 0;
 
-	pktd = (u_char *)handle->buffer + BT_CTRL_SIZE;
-	bthdr = (pcap_bluetooth_h4_header*)(void *)pktd;
-	iv.iov_base = pktd + sizeof(pcap_bluetooth_h4_header);
+	bthdr = (pcap_bluetooth_h4_header*) &handle->buffer[handle->offset];
+	iv.iov_base = &handle->buffer[handle->offset+sizeof(pcap_bluetooth_h4_header)];
 	iv.iov_len  = handle->snapshot;
 
 	memset(&msg, 0, sizeof(msg));
 	msg.msg_iov = &iv;
 	msg.msg_iovlen = 1;
 	msg.msg_control = handle->buffer;
-	msg.msg_controllen = BT_CTRL_SIZE;
+	msg.msg_controllen = handle->offset;
 
 	/* ignore interrupt system call error */
 	do {
@@ -341,8 +327,8 @@ bt_read_linux(pcap_t *handle, int max_packets _U_, pcap_handler callback, u_char
 	} while ((ret == -1) && (errno == EINTR));
 
 	if (ret < 0) {
-		pcap_fmt_errmsg_for_errno(handle->errbuf, PCAP_ERRBUF_SIZE,
-		    errno, "Can't receive packet");
+		snprintf(handle->errbuf, PCAP_ERRBUF_SIZE,
+		    "Can't receive packet: %s", strerror(errno));
 		return -1;
 	}
 
@@ -350,6 +336,7 @@ bt_read_linux(pcap_t *handle, int max_packets _U_, pcap_handler callback, u_char
 
 	/* get direction and timestamp*/
 	cmsg = CMSG_FIRSTHDR(&msg);
+	int in=0;
 	while (cmsg) {
 		switch (cmsg->cmsg_type) {
 			case HCI_CMSG_DIR:
@@ -370,18 +357,19 @@ bt_read_linux(pcap_t *handle, int max_packets _U_, pcap_handler callback, u_char
 	pkth.caplen+=sizeof(pcap_bluetooth_h4_header);
 	pkth.len = pkth.caplen;
 	if (handle->fcode.bf_insns == NULL ||
-	    bpf_filter(handle->fcode.bf_insns, pktd, pkth.len, pkth.caplen)) {
-		callback(user, &pkth, pktd);
+	    bpf_filter(handle->fcode.bf_insns, &handle->buffer[handle->offset],
+	      pkth.len, pkth.caplen)) {
+		callback(user, &pkth, &handle->buffer[handle->offset]);
 		return 1;
 	}
 	return 0;	/* didn't pass filter */
 }
 
 static int
-bt_inject_linux(pcap_t *handle, const void *buf _U_, size_t size _U_)
+bt_inject_linux(pcap_t *handle, const void *buf, size_t size)
 {
-	pcap_snprintf(handle->errbuf, PCAP_ERRBUF_SIZE,
-	    "Packet injection is not supported on Bluetooth devices");
+	snprintf(handle->errbuf, PCAP_ERRBUF_SIZE, "inject not supported on "
+    		"bluetooth devices");
 	return (-1);
 }
 
@@ -401,8 +389,8 @@ bt_stats_linux(pcap_t *handle, struct pcap_stat *stats)
 	} while ((ret == -1) && (errno == EINTR));
 
 	if (ret < 0) {
-		pcap_fmt_errmsg_for_errno(handle->errbuf, PCAP_ERRBUF_SIZE,
-		    errno, "Can't get stats via ioctl");
+		snprintf(handle->errbuf, PCAP_ERRBUF_SIZE,
+		    "Can't get stats via ioctl: %s", strerror(errno));
 		return (-1);
 
 	}

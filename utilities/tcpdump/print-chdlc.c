@@ -19,15 +19,14 @@
  * MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE.
  */
 
-/* \summary: Cisco HDLC printer */
-
+#define NETDISSECT_REWORKED
 #ifdef HAVE_CONFIG_H
 #include "config.h"
 #endif
 
-#include <netdissect-stdinc.h>
+#include <tcpdump-stdinc.h>
 
-#include "netdissect.h"
+#include "interface.h"
 #include "addrtoname.h"
 #include "ethertype.h"
 #include "extract.h"
@@ -46,18 +45,21 @@ static const struct tok chdlc_cast_values[] = {
 u_int
 chdlc_if_print(netdissect_options *ndo, const struct pcap_pkthdr *h, register const u_char *p)
 {
-	return chdlc_print(ndo, p, h->len);
+	register u_int length = h->len;
+	register u_int caplen = h->caplen;
+
+	if (caplen < CHDLC_HDRLEN) {
+		ND_PRINT((ndo, "[|chdlc]"));
+		return (caplen);
+	}
+        return (chdlc_print(ndo, p,length));
 }
 
 u_int
 chdlc_print(netdissect_options *ndo, register const u_char *p, u_int length)
 {
 	u_int proto;
-	const u_char *bp = p;
 
-	if (length < CHDLC_HDRLEN)
-		goto trunc;
-	ND_TCHECK2(*p, CHDLC_HDRLEN);
 	proto = EXTRACT_16BITS(&p[2]);
 	if (ndo->ndo_eflag) {
                 ND_PRINT((ndo, "%s, ethertype %s (0x%04x), length %u: ",
@@ -91,15 +93,12 @@ chdlc_print(netdissect_options *ndo, register const u_char *p, u_int length)
 		break;
         case ETHERTYPE_ISO:
                 /* is the fudge byte set ? lets verify by spotting ISO headers */
-                if (length < 2)
-                    goto trunc;
-                ND_TCHECK_16BITS(p);
                 if (*(p+1) == 0x81 ||
                     *(p+1) == 0x82 ||
                     *(p+1) == 0x83)
-                    isoclns_print(ndo, p + 1, length - 1);
+                    isoclns_print(ndo, p + 1, length - 1, length - 1);
                 else
-                    isoclns_print(ndo, p, length);
+                    isoclns_print(ndo, p, length, length);
                 break;
 	default:
                 if (!ndo->ndo_eflag)
@@ -108,10 +107,6 @@ chdlc_print(netdissect_options *ndo, register const u_char *p, u_int length)
 	}
 
 	return (CHDLC_HDRLEN);
-
-trunc:
-	ND_PRINT((ndo, "[|chdlc]"));
-	return ndo->ndo_snapend - bp;
 }
 
 /*

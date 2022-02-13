@@ -19,15 +19,14 @@
  * MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE.
  */
 
-/* \summary: Linux cooked sockets capture printer */
-
+#define NETDISSECT_REWORKED
 #ifdef HAVE_CONFIG_H
 #include "config.h"
 #endif
 
-#include <netdissect-stdinc.h>
+#include <tcpdump-stdinc.h>
 
-#include "netdissect.h"
+#include "interface.h"
 #include "addrtoname.h"
 #include "ethertype.h"
 #include "extract.h"
@@ -199,8 +198,7 @@ sll_if_print(netdissect_options *ndo, const struct pcap_pkthdr *h, const u_char 
 	u_int length = h->len;
 	register const struct sll_header *sllp;
 	u_short ether_type;
-	int llc_hdrlen;
-	u_int hdrlen;
+	u_short extracted_ethertype;
 
 	if (caplen < SLL_HDR_LEN) {
 		/*
@@ -223,7 +221,6 @@ sll_if_print(netdissect_options *ndo, const struct pcap_pkthdr *h, const u_char 
 	length -= SLL_HDR_LEN;
 	caplen -= SLL_HDR_LEN;
 	p += SLL_HDR_LEN;
-	hdrlen = SLL_HDR_LEN;
 
 	ether_type = EXTRACT_16BITS(&sllp->sll_protocol);
 
@@ -250,17 +247,23 @@ recurse:
 			 * 802.2.
 			 * Try to print the LLC-layer header & higher layers.
 			 */
-			llc_hdrlen = llc_print(ndo, p, length, caplen, NULL, NULL);
-			if (llc_hdrlen < 0)
+			if (llc_print(ndo, p, length, caplen, NULL, NULL,
+			    &extracted_ethertype) == 0)
 				goto unknown;	/* unknown LLC type */
-			hdrlen += llc_hdrlen;
 			break;
 
 		default:
+			extracted_ethertype = 0;
 			/*FALLTHROUGH*/
 
 		unknown:
-			/* packet type not known, print raw packet */
+			/* ether_type not known, print raw packet */
+			if (!ndo->ndo_eflag)
+				sll_print(ndo, sllp, length + SLL_HDR_LEN);
+			if (extracted_ethertype) {
+				ND_PRINT((ndo, "(LLC %s) ",
+			       etherproto_string(htons(extracted_ethertype))));
+			}
 			if (!ndo->ndo_suppress_default_print)
 				ND_DEFAULTPRINT(p, caplen);
 			break;
@@ -270,13 +273,9 @@ recurse:
 		 * Print VLAN information, and then go back and process
 		 * the enclosed type field.
 		 */
-		if (caplen < 4) {
+		if (caplen < 4 || length < 4) {
 			ND_PRINT((ndo, "[|vlan]"));
-			return (hdrlen + caplen);
-		}
-		if (length < 4) {
-			ND_PRINT((ndo, "[|vlan]"));
-			return (hdrlen + length);
+			return (SLL_HDR_LEN);
 		}
 	        if (ndo->ndo_eflag) {
 	        	uint16_t tag = EXTRACT_16BITS(p);
@@ -294,10 +293,9 @@ recurse:
 		p += 4;
 		length -= 4;
 		caplen -= 4;
-		hdrlen += 4;
 		goto recurse;
 	} else {
-		if (ethertype_print(ndo, ether_type, p, length, caplen, NULL, NULL) == 0) {
+		if (ethertype_print(ndo, ether_type, p, length, caplen) == 0) {
 			/* ether_type not known, print raw packet */
 			if (!ndo->ndo_eflag)
 				sll_print(ndo, sllp, length + SLL_HDR_LEN);
@@ -306,5 +304,5 @@ recurse:
 		}
 	}
 
-	return (hdrlen);
+	return (SLL_HDR_LEN);
 }

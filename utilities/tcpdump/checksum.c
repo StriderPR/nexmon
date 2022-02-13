@@ -14,21 +14,22 @@
  *
  * miscellaneous checksumming routines
  *
- * Original code by Hannes Gredler (hannes@gredler.at)
+ * Original code by Hannes Gredler (hannes@juniper.net)
  */
 
+#define NETDISSECT_REWORKED
 #ifdef HAVE_CONFIG_H
 #include "config.h"
 #endif
 
-#include <netdissect-stdinc.h>
+#include <tcpdump-stdinc.h>
 
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <assert.h>
 
-#include "netdissect.h"
+#include "interface.h"
 
 /*
  * CRC-10 table generated using the following Python snippet:
@@ -145,17 +146,17 @@ create_osi_cksum (const uint8_t *pptr, int checksum_offset, int length)
     uint32_t c0;
     uint32_t c1;
     uint16_t checksum;
-    int idx;
+    int index;
 
     c0 = 0;
     c1 = 0;
 
-    for (idx = 0; idx < length; idx++) {
+    for (index = 0; index < length; index++) {
         /*
          * Ignore the contents of the checksum field.
          */
-        if (idx == checksum_offset ||
-            idx == checksum_offset+1) {
+        if (index == checksum_offset ||
+            index == checksum_offset+1) {
             c1 += c0;
             pptr++;
         } else {

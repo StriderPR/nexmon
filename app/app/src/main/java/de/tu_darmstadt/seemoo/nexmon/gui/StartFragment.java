@@ -18,6 +18,7 @@
 
 package de.tu_darmstadt.seemoo.nexmon.gui;
 
+
 import android.app.Fragment;
 import android.content.Intent;
 import android.graphics.Color;
@@ -52,7 +53,7 @@ import eu.chainfire.libsuperuser.Shell;
  * Use the {@link StartFragment#newInstance} factory method to
  * create an instance of this fragment.
  */
-public class StartFragment extends Fragment {
+public class StartFragment extends TrackingFragment {
 
     TextView tvNexmonInfo;
     ImageView ivNexmon;
@@ -72,6 +73,7 @@ public class StartFragment extends Fragment {
         // Required empty public constructor
     }
 
+
     public static StartFragment newInstance() {
         StartFragment fragment = new StartFragment();
         return fragment;
@@ -87,10 +89,18 @@ public class StartFragment extends Fragment {
         super.onStart();
     }
 
+
+
     @Override
     public void onStop() {
         super.onStop();
         ((MyActivity) getActivity()).removePermissionListener();
+
+    }
+
+    @Override
+    public String getTrackingName() {
+        return "Screen: Start";
     }
 
     @Override
@@ -110,13 +120,13 @@ public class StartFragment extends Fragment {
         btnRoot.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
-                  String x = "isbroadcomchip: " + FirmwareUtil.getInstance().isBroadcomChip() + "\n";
+                String x = "isbroadcomchip: " + FirmwareUtil.getInstance().isBroadcomChip() + "\n";
                 //x += " capabilities: " + FirmwareUtil.getInstance().getCapabilities();
                 //x += " magic: " + String.format("%08x", Nexutil.getInstance().getIntIoctl(0)) + "\n";
                 //x += " magic: " + String.format("%08x", 0x11223344) + "\n";
                 //x += " test: " + String.format("%08x", (new Nexutil()).get(0).executeInt());
-                  x += " ver:" + (new Nexutil()).getIovar("ver", 256);
-                  Toast.makeText(getContext(), x, Toast.LENGTH_SHORT).show();
+                x += " ver:" + (new Nexutil()).getIovar("ver", 256);
+                Toast.makeText(getContext(), x, Toast.LENGTH_SHORT).show();
                 //Toast.makeText(getContext(), Dhdutil.getInstance().dumpConsole(), Toast.LENGTH_LONG).show();
                 //Log.d("DHDUTIL", Dhdutil.getInstance().dumpConsole());
             }
@@ -134,7 +144,9 @@ public class StartFragment extends Fragment {
         } catch(Exception e) {e.printStackTrace();}
 
         return view;
+
     }
+
 
     public void onClickNexmon() {
         Intent intent = new Intent();

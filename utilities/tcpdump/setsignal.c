@@ -23,7 +23,7 @@
 #include "config.h"
 #endif
 
-#include <netdissect-stdinc.h>
+#include <tcpdump-stdinc.h>
 
 #include <signal.h>
 #ifdef HAVE_SIGACTION

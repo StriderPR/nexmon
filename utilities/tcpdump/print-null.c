@@ -19,17 +19,16 @@
  * MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE.
  */
 
-/* \summary: BSD loopback device printer */
-
+#define NETDISSECT_REWORKED
 #ifdef HAVE_CONFIG_H
 #include "config.h"
 #endif
 
-#include <netdissect-stdinc.h>
+#include <tcpdump-stdinc.h>
 
 #include <string.h>
 
-#include "netdissect.h"
+#include "interface.h"
 #include "af.h"
 
 /*
@@ -84,7 +83,7 @@ null_if_print(netdissect_options *ndo, const struct pcap_pkthdr *h, const u_char
 		return (NULL_HDRLEN);
 	}
 
-	memcpy((char *)&family, (const char *)p, sizeof(family));
+	memcpy((char *)&family, (char *)p, sizeof(family));
 
 	/*
 	 * This isn't necessarily in our host byte order; if this is
@@ -117,7 +116,7 @@ null_if_print(netdissect_options *ndo, const struct pcap_pkthdr *h, const u_char
 		break;
 
 	case BSD_AFNUM_ISO:
-		isoclns_print(ndo, p, length);
+		isoclns_print(ndo, p, length, caplen);
 		break;
 
 	case BSD_AFNUM_APPLETALK:

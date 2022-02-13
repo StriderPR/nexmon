@@ -15,15 +15,14 @@
  * Original code by Ola Martin Lykkja (ola.lykkja@q-free.com)
  */
 
-/* \summary: ISO CALM FAST and ETSI GeoNetworking printer */
-
+#define NETDISSECT_REWORKED
 #ifdef HAVE_CONFIG_H
 #include "config.h"
 #endif
 
-#include <netdissect-stdinc.h>
+#include <tcpdump-stdinc.h>
 
-#include "netdissect.h"
+#include "interface.h"
 #include "extract.h"
 #include "addrtoname.h"
 
@@ -86,8 +85,6 @@ print_long_pos_vector(netdissect_options *ndo,
 {
 	uint32_t lat, lon;
 
-	if (!ND_TTEST2(*bp, GEONET_ADDR_LEN))
-		return (-1);
 	ND_PRINT((ndo, "GN_ADDR:%s ", linkaddr_string (ndo, bp, 0, GEONET_ADDR_LEN)));
 
 	if (!ND_TTEST2(*(bp+12), 8))
@@ -105,8 +102,7 @@ print_long_pos_vector(netdissect_options *ndo,
  * to the geonet header of the packet.
  */
 void
-geonet_print(netdissect_options *ndo, const u_char *bp, u_int length,
-	     const struct lladdr_info *src)
+geonet_print(netdissect_options *ndo, const u_char *eth, const u_char *bp, u_int length)
 {
 	int version;
 	int next_hdr;
@@ -118,16 +114,13 @@ geonet_print(netdissect_options *ndo, const u_char *bp, u_int length,
 	const char *hdr_type_txt = "Unknown";
 	int hdr_size = -1;
 
-	ND_PRINT((ndo, "GeoNet "));
-	if (src != NULL)
-		ND_PRINT((ndo, "src:%s", (src->addr_string)(ndo, src->addr)));
-	ND_PRINT((ndo, "; "));
+	ND_PRINT((ndo, "GeoNet src:%s; ", etheraddr_string(ndo, eth+6)));
 
 	/* Process Common Header */
 	if (length < 36)
-		goto invalid;
-
-	ND_TCHECK2(*bp, 8);
+		goto malformed;
+		
+	ND_TCHECK2(*bp, 7);
 	version = bp[0] >> 4;
 	next_hdr = bp[0] & 0x0f;
 	hdr_type = bp[1] >> 4;
@@ -231,7 +224,7 @@ geonet_print(netdissect_options *ndo, const u_char *bp, u_int length,
 	/* Skip Extended headers */
 	if (hdr_size >= 0) {
 		if (length < (u_int)hdr_size)
-			goto invalid;
+			goto malformed;
 		ND_TCHECK2(*bp, hdr_size);
 		length -= hdr_size;
 		bp += hdr_size;
@@ -241,7 +234,7 @@ geonet_print(netdissect_options *ndo, const u_char *bp, u_int length,
 			case 1:
 			case 2: /* BTP A/B */
 				if (length < 4)
-					goto invalid;
+					goto malformed;
 				ND_TCHECK2(*bp, 4);
 				print_btp(ndo, bp);
 				length -= 4;
@@ -268,7 +261,7 @@ geonet_print(netdissect_options *ndo, const u_char *bp, u_int length,
 		ND_DEFAULTPRINT(bp, length);
 	return;
 
-invalid:
+malformed:
 	ND_PRINT((ndo, " Malformed (small) "));
 	/* XXX - print the remaining data as hex? */
 	return;

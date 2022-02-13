@@ -19,15 +19,14 @@
  * MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE.
  */
 
-/* \summary: Apple IP-over-IEEE 1394 printer */
-
+#define NETDISSECT_REWORKED
 #ifdef HAVE_CONFIG_H
 #include "config.h"
 #endif
 
-#include <netdissect-stdinc.h>
+#include <tcpdump-stdinc.h>
 
-#include "netdissect.h"
+#include "interface.h"
 #include "extract.h"
 #include "addrtoname.h"
 #include "ethertype.h"
@@ -49,12 +48,6 @@ struct firewire_header {
  */
 #define FIREWIRE_HDRLEN		18
 
-static const char *
-fwaddr_string(netdissect_options *ndo, const u_char *addr)
-{
-	return (linkaddr_string(ndo, addr, LINKADDR_IEEE1394, FIREWIRE_EUI64_LEN));
-}
-
 static inline void
 ap1394_hdr_print(netdissect_options *ndo, register const u_char *bp, u_int length)
 {
@@ -64,8 +57,8 @@ ap1394_hdr_print(netdissect_options *ndo, register const u_char *bp, u_int lengt
 	fp = (const struct firewire_header *)bp;
 
 	ND_PRINT((ndo, "%s > %s",
-		     fwaddr_string(ndo, fp->firewire_shost),
-		     fwaddr_string(ndo, fp->firewire_dhost)));
+		     linkaddr_string(ndo, fp->firewire_dhost, LINKADDR_IEEE1394, FIREWIRE_EUI64_LEN),
+		     linkaddr_string(ndo, fp->firewire_shost, LINKADDR_IEEE1394, FIREWIRE_EUI64_LEN)));
 
 	firewire_type = EXTRACT_16BITS(&fp->firewire_type);
 	if (!ndo->ndo_qflag) {
@@ -90,9 +83,8 @@ ap1394_if_print(netdissect_options *ndo, const struct pcap_pkthdr *h, const u_ch
 {
 	u_int length = h->len;
 	u_int caplen = h->caplen;
-	const struct firewire_header *fp;
+	struct firewire_header *fp;
 	u_short ether_type;
-	struct lladdr_info src, dst;
 
 	if (caplen < FIREWIRE_HDRLEN) {
 		ND_PRINT((ndo, "[|ap1394]"));
@@ -104,18 +96,14 @@ ap1394_if_print(netdissect_options *ndo, const struct pcap_pkthdr *h, const u_ch
 
 	length -= FIREWIRE_HDRLEN;
 	caplen -= FIREWIRE_HDRLEN;
-	fp = (const struct firewire_header *)p;
+	fp = (struct firewire_header *)p;
 	p += FIREWIRE_HDRLEN;
 
 	ether_type = EXTRACT_16BITS(&fp->firewire_type);
-	src.addr = fp->firewire_shost;
-	src.addr_string = fwaddr_string;
-	dst.addr = fp->firewire_dhost;
-	dst.addr_string = fwaddr_string;
-	if (ethertype_print(ndo, ether_type, p, length, caplen, &src, &dst) == 0) {
+	if (ethertype_print(ndo, ether_type, p, length, caplen) == 0) {
 		/* ether_type not known, print raw packet */
 		if (!ndo->ndo_eflag)
-			ap1394_hdr_print(ndo, (const u_char *)fp, length + FIREWIRE_HDRLEN);
+			ap1394_hdr_print(ndo, (u_char *)fp, length + FIREWIRE_HDRLEN);
 
 		if (!ndo->ndo_suppress_default_print)
 			ND_DEFAULTPRINT(p, caplen);

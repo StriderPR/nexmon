@@ -11,13 +11,11 @@
  * FOR A PARTICULAR PURPOSE.
  */
 
-/* \summary: Simple Mail Transfer Protocol (SMTP) printer */
-
 #ifdef HAVE_CONFIG_H
 #include "config.h"
 #endif
 
-#include <netdissect-stdinc.h>
+#include <tcpdump-stdinc.h>
 
 #include <stdio.h>
 #include <stdlib.h>
