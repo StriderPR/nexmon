@@ -9,3 +9,7 @@ https://github.com/seemoo-lab/nexmon/archive/499968c9f77ea5120553b4ce631e110abd3
 How to install nexmon:
 
 https://pimylifeup.com/raspberry-pi-nexmon/
+
+Archive for Raspbian Kernel Headers
+
+https://archive.raspberrypi.org/debian/pool/main/r/raspberrypi-firmware/
